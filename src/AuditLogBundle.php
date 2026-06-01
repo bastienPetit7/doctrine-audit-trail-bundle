@@ -30,4 +30,29 @@ final class AuditLogBundle extends AbstractBundle
 
         $builder->setParameter('audit_log.enabled', $config['enabled'] ?? true);
     }
+
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        if (!$builder->hasExtension('doctrine')) {
+            return;
+        }
+
+        $builder->prependExtensionConfig('doctrine', [
+            'orm' => [
+                'entity_managers' => [
+                    'audit' => [
+                        'mappings' => [
+                            'AuditLogBundle' => [
+                                'type' => 'attribute',
+                                'is_bundle' => false,
+                                'dir' => __DIR__.'/Entity',
+                                'prefix' => 'Metadev\\AuditLogBundle\\Entity',
+                                'alias' => 'AuditLog',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
 }

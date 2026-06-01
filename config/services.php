@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Metadev\AuditLogBundle\Buffer\PendingAuditBuffer;
 use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
 use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
 use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\AuditLogBundle\Doctrine\EventListener\AuditLogListener;
 use Metadev\AuditLogBundle\Factory\AuditLogFactory;
 use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
 use Metadev\AuditLogBundle\Persister\AuditPersisterInterface;
@@ -57,4 +59,10 @@ return static function (ContainerConfigurator $container): void {
         ->args([service('doctrine.orm.audit_entity_manager')]);
 
     $services->alias(AuditPersisterInterface::class, DoctrineAuditPersister::class);
+
+    $services->set(PendingAuditBuffer::class);
+
+    $services->set(AuditLogListener::class)
+        ->arg('$auditEntityManager', service('doctrine.orm.audit_entity_manager'))
+        ->arg('$enabled', param('audit_log.enabled'));
 };

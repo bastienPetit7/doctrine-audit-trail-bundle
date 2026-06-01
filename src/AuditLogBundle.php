@@ -18,6 +18,11 @@ final class AuditLogBundle extends AbstractBundle
         $definition->rootNode()
             ->children()
                 ->booleanNode('enabled')->defaultTrue()->end()
+                ->arrayNode('ignored_fields')
+                    ->info('Fields excluded from the diff for every audited entity.')
+                    ->scalarPrototype()->end()
+                    ->defaultValue([])
+                ->end()
             ->end();
     }
 
@@ -29,6 +34,7 @@ final class AuditLogBundle extends AbstractBundle
         $container->import(__DIR__.'/../config/services.php');
 
         $builder->setParameter('audit_log.enabled', $config['enabled'] ?? true);
+        $builder->setParameter('audit_log.ignored_fields', $config['ignored_fields'] ?? []);
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

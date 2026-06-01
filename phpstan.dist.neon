@@ -1,0 +1,13 @@
+includes:
+    - ../vendor/phpstan/phpstan-doctrine/extension.neon
+    - ../vendor/phpstan/phpstan-symfony/extension.neon
+    - ../vendor/phpstan/phpstan-symfony/rules.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+    ignoreErrors:
+        # ServiceEntityRepository generics are provided by Doctrine at runtime.
+        - identifier: missingType.generics

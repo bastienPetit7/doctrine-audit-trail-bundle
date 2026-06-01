@@ -13,7 +13,7 @@ final class AuditLogFactory
 {
     /**
      * @param array{before?: array<string, mixed>, after?: array<string, mixed>} $diff
-     * @param array<string, mixed>                                                $identifier Doctrine identifier values
+     * @param array<string, mixed>                                               $identifier Doctrine identifier values
      */
     public function create(object $entity, AuditAction $action, array $diff, AuditActor $actor, array $identifier): AuditLog
     {

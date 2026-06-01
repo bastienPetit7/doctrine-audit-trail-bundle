@@ -125,4 +125,3 @@ final class AuditLogBundle extends AbstractBundle
         return $name;
     }
 }
-

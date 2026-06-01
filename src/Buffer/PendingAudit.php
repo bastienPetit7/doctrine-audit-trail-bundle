@@ -10,7 +10,7 @@ final class PendingAudit
 {
     /**
      * @param array{before?: array<string, mixed>, after?: array<string, mixed>} $diff
-     * @param array<string, mixed>|null                                           $identifier Doctrine identifier values
+     * @param array<string, mixed>|null                                          $identifier Doctrine identifier values
      */
     public function __construct(
         public readonly object $entity,

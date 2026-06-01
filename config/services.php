@@ -5,7 +5,10 @@ declare(strict_types=1);
 use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
 use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
 use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\AuditLogBundle\Factory\AuditLogFactory;
 use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
+use Metadev\AuditLogBundle\Persister\AuditPersisterInterface;
+use Metadev\AuditLogBundle\Persister\DoctrineAuditPersister;
 use Metadev\AuditLogBundle\Repository\AuditLogRepository;
 use Metadev\AuditLogBundle\User\AuditContextHolder;
 use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
@@ -46,4 +49,12 @@ return static function (ContainerConfigurator $container): void {
     $services->set(ScalarValueFormatter::class)
         ->autoconfigure(false)
         ->tag('audit_log.value_formatter', ['priority' => -1000]);
+
+    // Audit entry assembly + persistence on the dedicated "audit" entity manager.
+    $services->set(AuditLogFactory::class);
+
+    $services->set(DoctrineAuditPersister::class)
+        ->args([service('doctrine.orm.audit_entity_manager')]);
+
+    $services->alias(AuditPersisterInterface::class, DoctrineAuditPersister::class);
 };

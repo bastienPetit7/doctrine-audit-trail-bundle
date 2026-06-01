@@ -11,8 +11,8 @@ use Metadev\AuditLogBundle\Repository\AuditLogRepository;
 
 #[ORM\Entity(repositoryClass: AuditLogRepository::class)]
 #[ORM\Table(name: 'audit_log')]
-#[ORM\Index(name: 'idx_audit_log_entity', columns: ['entity_class', 'entity_id'])]
-#[ORM\Index(name: 'idx_audit_log_created_at', columns: ['created_at'])]
+#[ORM\Index(name: 'idx_audit_log_entity', fields: ['entityClass', 'entityId'])]
+#[ORM\Index(name: 'idx_audit_log_created_at', fields: ['createdAt'])]
 class AuditLog
 {
     #[ORM\Id]

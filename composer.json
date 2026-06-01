@@ -1,0 +1,18 @@
+{
+    "name": "metadev/audit-log-bundle",
+    "description": "Audit log bundle for Symfony: tracks Doctrine entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Metadev\\AuditLogBundle\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Bastien Petit",
+            "email": "bastien.petit7@gmail.com"
+        }
+    ],
+    "require": {}
+}

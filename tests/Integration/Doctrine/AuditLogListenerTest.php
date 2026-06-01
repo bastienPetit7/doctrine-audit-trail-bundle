@@ -39,7 +39,28 @@ final class AuditLogListenerTest extends TestCase
             [AuditedProduct::class, PlainCategory::class],
         );
 
-        $this->registerListener(enabled: true);
+        $this->registerListener($this->appEntityManager, $this->auditEntityManager, enabled: true);
+    }
+
+    #[Test]
+    public function it_should_write_nothing_when_disabled(): void
+    {
+        $appEntityManager = $this->buildEntityManager(
+            [\dirname(__DIR__, 2).'/Fixtures/Doctrine'],
+            [AuditedProduct::class, PlainCategory::class],
+        );
+        $auditEntityManager = $this->createAuditEntityManager();
+        $this->registerListener($appEntityManager, $auditEntityManager, enabled: false);
+
+        $product = $this->newProduct('Widget', 100);
+        $appEntityManager->persist($product);
+        $appEntityManager->flush();
+
+        $count = (int) $auditEntityManager
+            ->createQuery('SELECT COUNT(a.id) FROM '.AuditLog::class.' a')
+            ->getSingleScalarResult();
+
+        self::assertSame(0, $count);
     }
 
     #[Test]
@@ -128,8 +149,11 @@ final class AuditLogListenerTest extends TestCase
         return $product;
     }
 
-    private function registerListener(bool $enabled): void
-    {
+    private function registerListener(
+        EntityManagerInterface $appEntityManager,
+        EntityManagerInterface $auditEntityManager,
+        bool $enabled,
+    ): void {
         $resolver = new class implements AuditUserResolverInterface {
             public function resolve(): AuditActor
             {
@@ -141,14 +165,14 @@ final class AuditLogListenerTest extends TestCase
             new AuditMetadataFactory(),
             new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()])),
             new AuditLogFactory(),
-            new DoctrineAuditPersister($this->auditEntityManager),
+            new DoctrineAuditPersister($auditEntityManager),
             $resolver,
             new PendingAuditBuffer(),
-            $this->auditEntityManager,
+            $auditEntityManager,
             $enabled,
         );
 
-        $this->appEntityManager->getEventManager()->addEventListener(
+        $appEntityManager->getEventManager()->addEventListener(
             [Events::onFlush, Events::postPersist, Events::postFlush],
             $listener,
         );

@@ -7,6 +7,7 @@ use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
 use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
 use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\AuditLogBundle\Doctrine\EventListener\AuditLogListener;
+use Metadev\AuditLogBundle\Doctrine\EventListener\AuditTableNameListener;
 use Metadev\AuditLogBundle\Factory\AuditLogFactory;
 use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
 use Metadev\AuditLogBundle\Persister\AuditPersisterInterface;
@@ -65,4 +66,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(AuditLogListener::class)
         ->arg('$auditEntityManager', service('doctrine.orm.audit_entity_manager'))
         ->arg('$enabled', param('audit_log.enabled'));
+
+    $services->set(AuditTableNameListener::class)
+        ->args([param('audit_log.storage.table_name')]);
 };

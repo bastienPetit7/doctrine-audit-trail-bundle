@@ -3,16 +3,42 @@
     "description": "Audit log bundle for Symfony: tracks Doctrine entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
     "type": "symfony-bundle",
     "license": "MIT",
-    "autoload": {
-        "psr-4": {
-            "Metadev\\AuditLogBundle\\": "src/"
-        }
-    },
+    "keywords": ["symfony", "doctrine", "audit", "audit-log", "gdpr"],
     "authors": [
         {
             "name": "Bastien Petit",
             "email": "bastien.petit7@gmail.com"
         }
     ],
-    "require": {}
+    "require": {
+        "php": ">=8.2",
+        "doctrine/doctrine-bundle": "^2.10|^3.0",
+        "doctrine/orm": "^2.14|^3.0",
+        "symfony/config": "^6.4|^7.0|^8.0",
+        "symfony/dependency-injection": "^6.4|^7.0|^8.0",
+        "symfony/http-kernel": "^6.4|^7.0|^8.0"
+    },
+    "require-dev": {
+        "symfony/http-foundation": "^6.4|^7.0|^8.0",
+        "symfony/security-core": "^6.4|^7.0|^8.0"
+    },
+    "suggest": {
+        "symfony/security-core": "To attribute audit entries to the authenticated user",
+        "symfony/http-foundation": "To capture the client IP address and user agent"
+    },
+    "autoload": {
+        "psr-4": {
+            "Metadev\\AuditLogBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Metadev\\AuditLogBundle\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

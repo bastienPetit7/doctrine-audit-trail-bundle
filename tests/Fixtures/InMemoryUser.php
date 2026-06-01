@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Metadev\AuditLogBundle\Tests\Fixtures;
+
+use Symfony\Component\Security\Core\User\UserInterface;
+
+final class InMemoryUser implements UserInterface
+{
+    public function __construct(
+        private readonly int $id,
+        private readonly string $username,
+    ) {
+    }
+
+    public function getId(): int
+    {
+        return $this->id;
+    }
+
+    public function getUserIdentifier(): string
+    {
+        return $this->username;
+    }
+
+    public function getRoles(): array
+    {
+        return ['ROLE_USER'];
+    }
+
+    public function eraseCredentials(): void
+    {
+    }
+}

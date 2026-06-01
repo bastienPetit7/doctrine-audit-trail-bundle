@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Metadev\AuditLogBundle;
 
+use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -23,6 +24,19 @@ final class AuditLogBundle extends AbstractBundle
                     ->scalarPrototype()->end()
                     ->defaultValue([])
                 ->end()
+                ->arrayNode('actor')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('fallback_label')
+                            ->info('Label used outside an HTTP request (CLI, messenger).')
+                            ->defaultValue('cli')
+                        ->end()
+                        ->scalarNode('user_resolver')
+                            ->info('Custom AuditUserResolverInterface service id (optional).')
+                            ->defaultNull()
+                        ->end()
+                    ->end()
+                ->end()
             ->end();
     }
 
@@ -35,6 +49,12 @@ final class AuditLogBundle extends AbstractBundle
 
         $builder->setParameter('audit_log.enabled', $config['enabled'] ?? true);
         $builder->setParameter('audit_log.ignored_fields', $config['ignored_fields'] ?? []);
+        $builder->setParameter('audit_log.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
+
+        // Point the interface at a custom resolver service when one is configured.
+        if (null !== ($resolverId = $config['actor']['user_resolver'] ?? null)) {
+            $container->services()->alias(AuditUserResolverInterface::class, $resolverId);
+        }
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
+use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
+use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
 use Metadev\AuditLogBundle\Repository\AuditLogRepository;
 use Metadev\AuditLogBundle\User\AuditContextHolder;
@@ -36,4 +39,11 @@ return static function (ContainerConfigurator $container): void {
 
     // Default binding; overridden by config 'actor.user_resolver' when set.
     $services->alias(AuditUserResolverInterface::class, DefaultAuditUserResolver::class);
+
+    $services->set(DiffFormatterRegistry::class);
+    $services->set(ChangeSetExtractor::class);
+
+    $services->set(ScalarValueFormatter::class)
+        ->autoconfigure(false)
+        ->tag('audit_log.value_formatter', ['priority' => -1000]);
 };

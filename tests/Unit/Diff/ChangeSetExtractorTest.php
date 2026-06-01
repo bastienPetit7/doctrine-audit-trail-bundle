@@ -1,0 +1,73 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Metadev\AuditLogBundle\Tests\Unit\Diff;
+
+use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
+use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
+use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\AuditLogBundle\Enum\AuditAction;
+use Metadev\AuditLogBundle\Metadata\AuditMetadata;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+final class ChangeSetExtractorTest extends TestCase
+{
+    private function extractor(): ChangeSetExtractor
+    {
+        return new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()]));
+    }
+
+    #[Test]
+    public function it_should_produce_a_json_serialisable_diff_for_scalars_dates_and_enums(): void
+    {
+        $changeSet = [
+            'title' => ['Old', 'New'],
+            'publishedAt' => [null, new \DateTimeImmutable('2026-01-02T03:04:05+00:00')],
+            'status' => [null, AuditAction::Create],
+            'views' => [1, 2],
+        ];
+
+        $diff = $this->extractor()->extractChanges($changeSet, new AuditMetadata(auditable: true));
+
+        self::assertSame(
+            [
+                'before' => ['title' => 'Old', 'publishedAt' => null, 'status' => null, 'views' => 1],
+                'after' => ['title' => 'New', 'publishedAt' => '2026-01-02T03:04:05+00:00', 'status' => 'create', 'views' => 2],
+            ],
+            $diff,
+        );
+        self::assertJson(json_encode($diff, \JSON_THROW_ON_ERROR));
+    }
+
+    #[Test]
+    public function it_should_exclude_ignored_fields_from_the_diff(): void
+    {
+        $changeSet = [
+            'title' => ['Old', 'New'],
+            'password' => ['secret-a', 'secret-b'],
+        ];
+
+        $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
+
+        $diff = $this->extractor()->extractChanges($changeSet, $metadata);
+
+        self::assertArrayHasKey('title', $diff['after']);
+        self::assertArrayNotHasKey('password', $diff['after']);
+        self::assertArrayNotHasKey('password', $diff['before']);
+    }
+
+    #[Test]
+    public function it_should_snapshot_the_before_state_for_deletions(): void
+    {
+        $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
+
+        $diff = $this->extractor()->extractDeletion(
+            ['title' => 'Gone', 'password' => 'secret'],
+            $metadata,
+        );
+
+        self::assertSame(['before' => ['title' => 'Gone'], 'after' => []], $diff);
+    }
+}

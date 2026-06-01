@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Metadev\AuditLogBundle;
 
+use Metadev\AuditLogBundle\DependencyInjection\Compiler\AuditFormatterPass;
 use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;

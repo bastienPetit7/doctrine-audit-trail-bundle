@@ -19,6 +19,12 @@
         "symfony/http-kernel": "^6.4|^7.0|^8.0"
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.50",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^11.0",
         "symfony/http-foundation": "^6.4|^7.0|^8.0",
         "symfony/security-core": "^6.4|^7.0|^8.0"
     },
@@ -35,6 +41,19 @@
         "psr-4": {
             "Metadev\\AuditLogBundle\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-unit": "vendor/bin/phpunit --testsuite=unit",
+        "test-integration": "vendor/bin/phpunit --testsuite=integration",
+        "cs-fix": "vendor/bin/php-cs-fixer fix",
+        "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
+        "phpstan": "vendor/bin/phpstan analyse --configuration=phpstan.dist.neon",
+        "ci": [
+            "@cs-check",
+            "@phpstan",
+            "@test"
+        ]
     },
     "config": {
         "sort-packages": true

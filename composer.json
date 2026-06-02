@@ -48,7 +48,7 @@
         "test-integration": "vendor/bin/phpunit --testsuite=integration",
         "cs-fix": "vendor/bin/php-cs-fixer fix",
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
-        "phpstan": "vendor/bin/phpstan analyse --configuration=phpstan.dist.neon",
+        "phpstan": "vendor/bin/phpstan analyse --configuration=phpstan.dist.neon --memory-limit=512M",
         "ci": [
             "@cs-check",
             "@phpstan",

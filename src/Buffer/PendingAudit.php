@@ -9,7 +9,7 @@ use Metadev\AuditLogBundle\Enum\AuditAction;
 final class PendingAudit
 {
     /**
-     * @param array{before?: array<string, mixed>, after?: array<string, mixed>} $diff
+     * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
      * @param array<string, mixed>|null                                          $identifier Doctrine identifier values
      */
     public function __construct(

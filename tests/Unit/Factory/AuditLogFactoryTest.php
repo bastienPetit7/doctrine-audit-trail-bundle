@@ -49,7 +49,7 @@ final class AuditLogFactoryTest extends TestCase
         $log = (new AuditLogFactory())->create(
             new AuditedDummy(),
             AuditAction::Create,
-            ['after' => []],
+            ['before' => [], 'after' => []],
             new AuditActor(label: 'cli'),
             ['postId' => 3, 'tagId' => 9],
         );

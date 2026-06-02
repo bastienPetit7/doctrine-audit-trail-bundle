@@ -34,6 +34,9 @@ final class AuditMetadataFactory
         return $this->cache[$class] ??= $this->build($class);
     }
 
+    /**
+     * @param class-string|object $classOrObject
+     */
     public function isAuditable(string|object $classOrObject): bool
     {
         return $this->getMetadata($classOrObject)->auditable;

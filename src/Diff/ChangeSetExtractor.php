@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Metadev\AuditLogBundle\Diff;
 
+use Doctrine\ORM\PersistentCollection;
 use Metadev\AuditLogBundle\Metadata\AuditMetadata;
 
 final class ChangeSetExtractor
@@ -14,7 +15,7 @@ final class ChangeSetExtractor
     }
 
     /**
-     * @param array<string, array{0: mixed, 1: mixed}> $changeSet Doctrine UoW change set
+     * @param array<string, array{0: mixed, 1: mixed}|PersistentCollection> $changeSet Doctrine UoW change set
      *
      * @return array{before: array<string, mixed>, after: array<string, mixed>}
      */
@@ -23,11 +24,16 @@ final class ChangeSetExtractor
         $before = [];
         $after = [];
 
-        foreach ($changeSet as $field => [$old, $new]) {
+        foreach ($changeSet as $field => $values) {
+            if (!is_array($values)) {
+                continue;
+            }
+
             if ($metadata->isFieldIgnored($field)) {
                 continue;
             }
 
+            [$old, $new] = $values;
             $before[$field] = $this->formatters->format($old);
             $after[$field] = $this->formatters->format($new);
         }

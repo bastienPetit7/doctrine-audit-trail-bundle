@@ -21,7 +21,7 @@ class AuditLog
     private ?int $id = null;
 
     /**
-     * @param array{before?: array<string, mixed>, after?: array<string, mixed>} $diff
+     * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
      */
     public function __construct(
         #[ORM\Column(type: Types::STRING, length: 255)]
@@ -68,7 +68,7 @@ class AuditLog
     }
 
     /**
-     * @return array{before?: array<string, mixed>, after?: array<string, mixed>}
+     * @return array{before: array<string, mixed>, after: array<string, mixed>}
      */
     public function getDiff(): array
     {

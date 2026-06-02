@@ -55,7 +55,7 @@ final class DoctrineAuditPersisterTest extends TestCase
             entityClass: 'App\\Entity\\Post',
             entityId: $id,
             action: AuditAction::Create,
-            diff: ['after' => ['title' => 'Hello']],
+            diff: ['before' => [], 'after' => ['title' => 'Hello']],
             userId: '1',
             userIdentifier: 'admin',
             ipAddress: '127.0.0.1',

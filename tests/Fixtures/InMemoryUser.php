@@ -8,6 +8,9 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 final class InMemoryUser implements UserInterface
 {
+    /**
+     * @param non-empty-string $username
+     */
     public function __construct(
         private readonly int $id,
         private readonly string $username,
@@ -19,6 +22,9 @@ final class InMemoryUser implements UserInterface
         return $this->id;
     }
 
+    /**
+     * @return non-empty-string
+     */
     public function getUserIdentifier(): string
     {
         return $this->username;

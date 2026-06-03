@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Attribute;
+namespace Metadev\DoctrineAuditTrailBundle\Attribute;
 
 #[\Attribute(\Attribute::TARGET_CLASS)]
 final class Auditable

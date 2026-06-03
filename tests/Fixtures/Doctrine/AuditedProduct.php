@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Fixtures\Doctrine;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine;
 
 use Doctrine\ORM\Mapping as ORM;
-use Metadev\AuditLogBundle\Attribute\Auditable;
-use Metadev\AuditLogBundle\Attribute\AuditIgnore;
+use Metadev\DoctrineAuditTrailBundle\Attribute\Auditable;
+use Metadev\DoctrineAuditTrailBundle\Attribute\AuditIgnore;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'product')]

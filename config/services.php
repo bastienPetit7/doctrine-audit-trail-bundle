@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-use Metadev\AuditLogBundle\Buffer\PendingAuditBuffer;
-use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
-use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
-use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
-use Metadev\AuditLogBundle\Doctrine\EventListener\AuditLogListener;
-use Metadev\AuditLogBundle\Doctrine\EventListener\AuditTableNameListener;
-use Metadev\AuditLogBundle\Factory\AuditLogFactory;
-use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
-use Metadev\AuditLogBundle\Persister\AuditPersisterInterface;
-use Metadev\AuditLogBundle\Persister\DoctrineAuditPersister;
-use Metadev\AuditLogBundle\Repository\AuditLogRepository;
-use Metadev\AuditLogBundle\User\AuditContextHolder;
-use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
-use Metadev\AuditLogBundle\User\DefaultAuditUserResolver;
+use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
+use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
+use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
+use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
+use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Repository\AuditTrailEntryRepository;
+use Metadev\DoctrineAuditTrailBundle\User\AuditContextHolder;
+use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
+use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
@@ -28,10 +28,10 @@ return static function (ContainerConfigurator $container): void {
             ->autoconfigure()
             ->private();
 
-    $services->set(AuditLogRepository::class);
+    $services->set(AuditTrailEntryRepository::class);
 
     $services->set(AuditMetadataFactory::class)
-        ->args([param('audit_log.ignored_fields')]);
+        ->args([param('doctrine_audit_trail.ignored_fields')]);
 
     $services->set(AuditContextHolder::class);
 
@@ -40,7 +40,7 @@ return static function (ContainerConfigurator $container): void {
             service(AuditContextHolder::class),
             service('security.token_storage')->nullOnInvalid(),
             service('request_stack')->nullOnInvalid(),
-            param('audit_log.actor.fallback_label'),
+            param('doctrine_audit_trail.actor.fallback_label'),
         ]);
 
     // Default binding; overridden by config 'actor.user_resolver' when set.
@@ -51,10 +51,9 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(ScalarValueFormatter::class)
         ->autoconfigure(false)
-        ->tag('audit_log.value_formatter', ['priority' => -1000]);
+        ->tag('doctrine_audit_trail.value_formatter', ['priority' => -1000]);
 
-    // Audit entry assembly + persistence on the dedicated "audit" entity manager.
-    $services->set(AuditLogFactory::class);
+    $services->set(AuditTrailEntryFactory::class);
 
     $services->set(DoctrineAuditPersister::class)
         ->args([service('doctrine.orm.audit_entity_manager')]);
@@ -63,10 +62,10 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(PendingAuditBuffer::class);
 
-    $services->set(AuditLogListener::class)
+    $services->set(AuditTrailListener::class)
         ->arg('$auditEntityManager', service('doctrine.orm.audit_entity_manager'))
-        ->arg('$enabled', param('audit_log.enabled'));
+        ->arg('$enabled', param('doctrine_audit_trail.enabled'));
 
     $services->set(AuditTableNameListener::class)
-        ->args([param('audit_log.storage.table_name')]);
+        ->args([param('doctrine_audit_trail.storage.table_name')]);
 };

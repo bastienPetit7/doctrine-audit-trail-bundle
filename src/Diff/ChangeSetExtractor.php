@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Diff;
+namespace Metadev\DoctrineAuditTrailBundle\Diff;
 
 use Doctrine\ORM\PersistentCollection;
-use Metadev\AuditLogBundle\Metadata\AuditMetadata;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
 
 final class ChangeSetExtractor
 {
@@ -25,7 +25,7 @@ final class ChangeSetExtractor
         $after = [];
 
         foreach ($changeSet as $field => $values) {
-            if (!is_array($values)) {
+            if (!\is_array($values)) {
                 continue;
             }
 

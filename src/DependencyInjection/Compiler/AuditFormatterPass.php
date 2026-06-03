@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\DependencyInjection\Compiler;
+namespace Metadev\DoctrineAuditTrailBundle\DependencyInjection\Compiler;
 
-use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\PriorityTaggedServiceTrait;
@@ -20,7 +20,7 @@ final class AuditFormatterPass implements CompilerPassInterface
             return;
         }
 
-        $formatters = $this->findAndSortTaggedServices('audit_log.value_formatter', $container);
+        $formatters = $this->findAndSortTaggedServices('doctrine_audit_trail.value_formatter', $container);
 
         $container->getDefinition(DiffFormatterRegistry::class)
             ->setArgument(0, new IteratorArgument($formatters));

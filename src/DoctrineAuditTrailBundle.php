@@ -2,22 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle;
+namespace Metadev\DoctrineAuditTrailBundle;
 
-use Metadev\AuditLogBundle\DependencyInjection\Compiler\AuditFormatterPass;
-use Metadev\AuditLogBundle\Doctrine\EventListener\AuditLogListener;
-use Metadev\AuditLogBundle\Persister\DoctrineAuditPersister;
-use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
+use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
+use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
-final class AuditLogBundle extends AbstractBundle
+final class DoctrineAuditTrailBundle extends AbstractBundle
 {
     private const DEFAULT_ENTITY_MANAGER = 'audit';
-    private const DEFAULT_TABLE_NAME = 'audit_log';
+    private const DEFAULT_TABLE_NAME = 'audit_trail';
 
     public function configure(DefinitionConfigurator $definition): void
     {
@@ -35,7 +34,7 @@ final class AuditLogBundle extends AbstractBundle
                             ->defaultValue(self::DEFAULT_ENTITY_MANAGER)
                         ->end()
                         ->scalarNode('table_name')
-                            ->info('Table name for the audit_log entity.')
+                            ->info('Table name for the audit trail entity.')
                             ->defaultValue(self::DEFAULT_TABLE_NAME)
                         ->end()
                     ->end()
@@ -68,20 +67,18 @@ final class AuditLogBundle extends AbstractBundle
     {
         $container->import(__DIR__.'/../config/services.php');
 
-        $builder->setParameter('audit_log.enabled', $config['enabled'] ?? true);
-        $builder->setParameter('audit_log.ignored_fields', $config['ignored_fields'] ?? []);
-        $builder->setParameter('audit_log.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
+        $builder->setParameter('doctrine_audit_trail.enabled', $config['enabled'] ?? true);
+        $builder->setParameter('doctrine_audit_trail.ignored_fields', $config['ignored_fields'] ?? []);
+        $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
 
         $tableName = $config['storage']['table_name'] ?? self::DEFAULT_TABLE_NAME;
-        $builder->setParameter('audit_log.storage.table_name', $tableName);
+        $builder->setParameter('doctrine_audit_trail.storage.table_name', $tableName);
 
-        // Bind the persister and listener to the configured entity manager service.
         $entityManagerName = $config['storage']['entity_manager'] ?? self::DEFAULT_ENTITY_MANAGER;
         $entityManagerRef = new Reference(\sprintf('doctrine.orm.%s_entity_manager', $entityManagerName));
         $builder->getDefinition(DoctrineAuditPersister::class)->setArgument(0, $entityManagerRef);
-        $builder->getDefinition(AuditLogListener::class)->setArgument('$auditEntityManager', $entityManagerRef);
+        $builder->getDefinition(AuditTrailListener::class)->setArgument('$auditEntityManager', $entityManagerRef);
 
-        // Point the interface at a custom resolver service when one is configured.
         if (null !== ($resolverId = $config['actor']['user_resolver'] ?? null)) {
             $container->services()->alias(AuditUserResolverInterface::class, $resolverId);
         }
@@ -98,12 +95,12 @@ final class AuditLogBundle extends AbstractBundle
                 'entity_managers' => [
                     $this->resolveEntityManagerName($builder) => [
                         'mappings' => [
-                            'AuditLogBundle' => [
+                            'DoctrineAuditTrailBundle' => [
                                 'type' => 'attribute',
                                 'is_bundle' => false,
                                 'dir' => __DIR__.'/Entity',
-                                'prefix' => 'Metadev\\AuditLogBundle\\Entity',
-                                'alias' => 'AuditLog',
+                                'prefix' => 'Metadev\\DoctrineAuditTrailBundle\\Entity',
+                                'alias' => 'AuditTrail',
                             ],
                         ],
                     ],
@@ -116,7 +113,7 @@ final class AuditLogBundle extends AbstractBundle
     {
         $name = self::DEFAULT_ENTITY_MANAGER;
 
-        foreach ($builder->getExtensionConfig('audit_log') as $config) {
+        foreach ($builder->getExtensionConfig('doctrine_audit_trail') as $config) {
             if (isset($config['storage']['entity_manager'])) {
                 $name = $config['storage']['entity_manager'];
             }

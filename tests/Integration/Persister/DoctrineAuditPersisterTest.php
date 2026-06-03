@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Integration\Persister;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Integration\Persister;
 
-use Metadev\AuditLogBundle\Entity\AuditLog;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Persister\DoctrineAuditPersister;
-use Metadev\AuditLogBundle\Tests\Integration\InMemoryAuditEntityManagerTrait;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Tests\Integration\InMemoryAuditEntityManagerTrait;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -21,12 +21,12 @@ final class DoctrineAuditPersisterTest extends TestCase
         $entityManager = $this->createAuditEntityManager();
         $persister = new DoctrineAuditPersister($entityManager);
 
-        $persister->persist([$this->makeLog('a'), $this->makeLog('b')]);
+        $persister->persist([$this->makeEntry('a'), $this->makeEntry('b')]);
 
         $entityManager->clear();
-        /** @var AuditLog[] $rows */
+        /** @var AuditTrailEntry[] $rows */
         $rows = $entityManager
-            ->createQuery('SELECT a FROM '.AuditLog::class.' a ORDER BY a.id ASC')
+            ->createQuery('SELECT a FROM '.AuditTrailEntry::class.' a ORDER BY a.id ASC')
             ->getResult();
 
         self::assertCount(2, $rows);
@@ -43,15 +43,15 @@ final class DoctrineAuditPersisterTest extends TestCase
         $persister->persist([]);
 
         $count = (int) $entityManager
-            ->createQuery('SELECT COUNT(a.id) FROM '.AuditLog::class.' a')
+            ->createQuery('SELECT COUNT(a.id) FROM '.AuditTrailEntry::class.' a')
             ->getSingleScalarResult();
 
         self::assertSame(0, $count);
     }
 
-    private function makeLog(string $id): AuditLog
+    private function makeEntry(string $id): AuditTrailEntry
     {
-        return new AuditLog(
+        return new AuditTrailEntry(
             entityClass: 'App\\Entity\\Post',
             entityId: $id,
             action: AuditAction::Create,

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Repository;
+namespace Metadev\DoctrineAuditTrailBundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Metadev\AuditLogBundle\Entity\AuditLog;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 
-/** @extends ServiceEntityRepository<AuditLog> */
-class AuditLogRepository extends ServiceEntityRepository
+/** @extends ServiceEntityRepository<AuditTrailEntry> */
+class AuditTrailEntryRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, AuditLog::class);
+        parent::__construct($registry, AuditTrailEntry::class);
     }
 
     /**
-     * @return AuditLog[]
+     * @return AuditTrailEntry[]
      */
     public function findByEntity(string $entityClass, int|string $entityId): array
     {
@@ -28,7 +28,7 @@ class AuditLogRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return AuditLog[]
+     * @return AuditTrailEntry[]
      */
     public function findByActor(string $userIdentifier, int $limit = 50): array
     {

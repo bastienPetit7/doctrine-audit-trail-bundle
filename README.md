@@ -1,9 +1,9 @@
-# AuditLogBundle
+# DoctrineAuditTrailBundle
 
 Automatic, opt-in audit trail for Doctrine entity mutations on Symfony.
 
 Every create / update / delete of a marked entity is recorded as a structured
-`AuditLog` row: the entity class and id, the action, a JSON `before`/`after`
+`AuditTrailEntry` row: the entity class and id, the action, a JSON `before`/`after`
 diff, and the actor (authenticated user with IP / user-agent, or a fallback
 label for CLI / messenger / anonymous contexts).
 
@@ -18,7 +18,7 @@ Requires PHP >= 8.2, Symfony 6.4 / 7 / 8, Doctrine ORM 2.14+ / 3.
 ## Installation
 
 ```bash
-composer require metadev/audit-log-bundle
+composer require metadev/doctrine-audit-trail-bundle
 ```
 
 Register the bundle (Flex does this automatically):
@@ -27,7 +27,7 @@ Register the bundle (Flex does this automatically):
 // config/bundles.php
 return [
     // ...
-    Metadev\AuditLogBundle\AuditLogBundle::class => ['all' => true],
+    Metadev\DoctrineAuditTrailBundle\DoctrineAuditTrailBundle::class => ['all' => true],
 ];
 ```
 
@@ -35,7 +35,7 @@ return [
 
 The bundle persists logs through a **dedicated entity manager** (named `audit`
 by default). You declare the manager and its connection; the bundle ships and
-registers the `AuditLog` mapping onto it (via `prependExtension()`).
+registers the `AuditTrailEntry` mapping onto it (via `prependExtension()`).
 
 Keeping the audit store on its own connection means schema management for the
 audit table never collides with the application's own tables.
@@ -66,7 +66,7 @@ doctrine:
                         alias: App
             audit:
                 connection: audit
-                # AuditLog mapping is injected by the bundle.
+                # AuditTrailEntry mapping is injected by the bundle.
 ```
 
 Create the table:
@@ -79,13 +79,13 @@ php bin/console doctrine:schema:update --em=audit --force   # demo
 ## Configuration
 
 ```yaml
-# config/packages/audit_log.yaml
-audit_log:
+# config/packages/doctrine_audit_trail.yaml
+doctrine_audit_trail:
     enabled: true                       # global kill switch
 
     storage:
         entity_manager: audit           # dedicated EM name
-        table_name: audit_log
+        table_name: audit_trail
 
     ignored_fields:                     # excluded from every diff
         - password
@@ -99,8 +99,8 @@ audit_log:
 ## Marking entities
 
 ```php
-use Metadev\AuditLogBundle\Attribute\Auditable;
-use Metadev\AuditLogBundle\Attribute\AuditIgnore;
+use Metadev\DoctrineAuditTrailBundle\Attribute\Auditable;
+use Metadev\DoctrineAuditTrailBundle\Attribute\AuditIgnore;
 
 #[Auditable(label: 'Blog post')]
 class Post
@@ -117,9 +117,9 @@ Entities without `#[Auditable]` are ignored.
 ## Reading the trail
 
 ```php
-use Metadev\AuditLogBundle\Repository\AuditLogRepository;
+use Metadev\DoctrineAuditTrailBundle\Repository\AuditTrailEntryRepository;
 
-public function history(AuditLogRepository $repository): void
+public function history(AuditTrailEntryRepository $repository): void
 {
     $entries = $repository->findByEntity(Post::class, $postId);
     $byUser  = $repository->findByActor('jane_admin');
@@ -137,7 +137,7 @@ are best handled with a custom formatter** that extracts an identifier. Tag with
 a higher priority than the built-in formatter (which runs last):
 
 ```php
-use Metadev\AuditLogBundle\Diff\Formatter\ValueFormatterInterface;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ValueFormatterInterface;
 
 // Auto-tagged via the interface; priority 0 runs before the built-in (-1000).
 final class MoneyFormatter implements ValueFormatterInterface
@@ -152,7 +152,7 @@ final class MoneyFormatter implements ValueFormatterInterface
 Implement `AuditUserResolverInterface` and point the config at it:
 
 ```yaml
-audit_log:
+doctrine_audit_trail:
     actor:
         user_resolver: App\Audit\MyResolver
 ```
@@ -172,7 +172,7 @@ $this->contextHolder->reset();
 
 ```bash
 # from the host project (the bundle is symlinked into vendor):
-./bin/phpunit --testsuite "Audit Log Bundle Test Suite"
+./bin/phpunit --testsuite "Doctrine Audit Trail Bundle Test Suite"
 
 # from the bundle directory:
 ../vendor/bin/phpstan analyse --configuration=phpstan.dist.neon --memory-limit=512M

@@ -1,9 +1,9 @@
 {
-    "name": "metadev/audit-log-bundle",
-    "description": "Audit log bundle for Symfony: tracks Doctrine entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
+    "name": "metadev/doctrine-audit-trail-bundle",
+    "description": "Doctrine audit trail bundle for Symfony: tracks entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
     "type": "symfony-bundle",
     "license": "MIT",
-    "keywords": ["symfony", "doctrine", "audit", "audit-log", "gdpr"],
+    "keywords": ["symfony", "doctrine", "audit", "audit-trail", "gdpr"],
     "authors": [
         {
             "name": "Bastien Petit",
@@ -34,12 +34,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Metadev\\AuditLogBundle\\": "src/"
+            "Metadev\\DoctrineAuditTrailBundle\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Metadev\\AuditLogBundle\\Tests\\": "tests/"
+            "Metadev\\DoctrineAuditTrailBundle\\Tests\\": "tests/"
         }
     },
     "scripts": {

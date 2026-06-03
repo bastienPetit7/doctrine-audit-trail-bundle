@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\Metadata;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Metadata;
 
-use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
-use Metadev\AuditLogBundle\Tests\Fixtures\Entity\AuditedDummy;
-use Metadev\AuditLogBundle\Tests\Fixtures\Entity\PlainDummy;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\PlainDummy;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

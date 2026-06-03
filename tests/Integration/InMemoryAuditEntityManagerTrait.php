@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Integration;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Integration;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManager;
@@ -10,13 +10,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
-use Metadev\AuditLogBundle\Entity\AuditLog;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 
 trait InMemoryAuditEntityManagerTrait
 {
     private function createAuditEntityManager(): EntityManagerInterface
     {
-        return $this->buildEntityManager([\dirname(__DIR__, 2).'/src/Entity'], [AuditLog::class]);
+        return $this->buildEntityManager([\dirname(__DIR__, 2).'/src/Entity'], [AuditTrailEntry::class]);
     }
 
     /**

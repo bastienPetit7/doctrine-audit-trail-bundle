@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Factory;
+namespace Metadev\DoctrineAuditTrailBundle\Factory;
 
 use Doctrine\Persistence\Proxy;
-use Metadev\AuditLogBundle\Entity\AuditLog;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
 
-final class AuditLogFactory
+final class AuditTrailEntryFactory
 {
     /**
      * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
-     * @param array<string, mixed>                                               $identifier Doctrine identifier values
+     * @param array<string, mixed>                                             $identifier Doctrine identifier values
      */
-    public function create(object $entity, AuditAction $action, array $diff, AuditActor $actor, array $identifier): AuditLog
+    public function create(object $entity, AuditAction $action, array $diff, AuditActor $actor, array $identifier): AuditTrailEntry
     {
-        return new AuditLog(
+        return new AuditTrailEntry(
             entityClass: $this->resolveRealClass($entity),
             entityId: $this->formatIdentifier($identifier),
             action: $action,

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Fixtures\Doctrine;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine;
 
 use Doctrine\ORM\Mapping as ORM;
 

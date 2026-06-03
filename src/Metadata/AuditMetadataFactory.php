@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Metadata;
+namespace Metadev\DoctrineAuditTrailBundle\Metadata;
 
 use Doctrine\Persistence\Proxy;
-use Metadev\AuditLogBundle\Attribute\Auditable;
-use Metadev\AuditLogBundle\Attribute\AuditIgnore;
+use Metadev\DoctrineAuditTrailBundle\Attribute\Auditable;
+use Metadev\DoctrineAuditTrailBundle\Attribute\AuditIgnore;
 
 final class AuditMetadataFactory
 {

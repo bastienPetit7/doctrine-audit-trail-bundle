@@ -2,29 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Integration\Doctrine;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Integration\Doctrine;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
-use Metadev\AuditLogBundle\Buffer\PendingAuditBuffer;
-use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
-use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
-use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
-use Metadev\AuditLogBundle\Doctrine\EventListener\AuditLogListener;
-use Metadev\AuditLogBundle\Entity\AuditLog;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Factory\AuditLogFactory;
-use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
-use Metadev\AuditLogBundle\Persister\DoctrineAuditPersister;
-use Metadev\AuditLogBundle\Tests\Fixtures\Doctrine\AuditedProduct;
-use Metadev\AuditLogBundle\Tests\Fixtures\Doctrine\PlainCategory;
-use Metadev\AuditLogBundle\Tests\Integration\InMemoryAuditEntityManagerTrait;
-use Metadev\AuditLogBundle\User\AuditActor;
-use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
+use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
+use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine\AuditedProduct;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine\PlainCategory;
+use Metadev\DoctrineAuditTrailBundle\Tests\Integration\InMemoryAuditEntityManagerTrait;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-final class AuditLogListenerTest extends TestCase
+final class AuditTrailListenerTest extends TestCase
 {
     use InMemoryAuditEntityManagerTrait;
 
@@ -57,7 +57,7 @@ final class AuditLogListenerTest extends TestCase
         $appEntityManager->flush();
 
         $count = (int) $auditEntityManager
-            ->createQuery('SELECT COUNT(a.id) FROM '.AuditLog::class.' a')
+            ->createQuery('SELECT COUNT(a.id) FROM '.AuditTrailEntry::class.' a')
             ->getSingleScalarResult();
 
         self::assertSame(0, $count);
@@ -161,10 +161,10 @@ final class AuditLogListenerTest extends TestCase
             }
         };
 
-        $listener = new AuditLogListener(
+        $listener = new AuditTrailListener(
             new AuditMetadataFactory(),
             new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()])),
-            new AuditLogFactory(),
+            new AuditTrailEntryFactory(),
             new DoctrineAuditPersister($auditEntityManager),
             $resolver,
             new PendingAuditBuffer(),
@@ -179,15 +179,15 @@ final class AuditLogListenerTest extends TestCase
     }
 
     /**
-     * @return list<AuditLog>
+     * @return list<AuditTrailEntry>
      */
     private function auditLogs(): array
     {
         $this->auditEntityManager->clear();
 
-        /** @var list<AuditLog> $logs */
+        /** @var list<AuditTrailEntry> $logs */
         $logs = $this->auditEntityManager
-            ->createQuery('SELECT a FROM '.AuditLog::class.' a ORDER BY a.id ASC')
+            ->createQuery('SELECT a FROM '.AuditTrailEntry::class.' a ORDER BY a.id ASC')
             ->getResult();
 
         return $logs;

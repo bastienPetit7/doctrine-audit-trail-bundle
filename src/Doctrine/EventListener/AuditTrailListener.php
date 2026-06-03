@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Doctrine\EventListener;
+namespace Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
@@ -11,24 +11,24 @@ use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Events;
 use Doctrine\Persistence\ObjectManager;
-use Metadev\AuditLogBundle\Buffer\PendingAudit;
-use Metadev\AuditLogBundle\Buffer\PendingAuditBuffer;
-use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Factory\AuditLogFactory;
-use Metadev\AuditLogBundle\Metadata\AuditMetadataFactory;
-use Metadev\AuditLogBundle\Persister\AuditPersisterInterface;
-use Metadev\AuditLogBundle\User\AuditUserResolverInterface;
+use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAudit;
+use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
+use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
+use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postPersist)]
 #[AsDoctrineListener(event: Events::postFlush)]
-final class AuditLogListener
+final class AuditTrailListener
 {
     public function __construct(
         private readonly AuditMetadataFactory $metadataFactory,
         private readonly ChangeSetExtractor $changeSetExtractor,
-        private readonly AuditLogFactory $auditLogFactory,
+        private readonly AuditTrailEntryFactory $auditTrailEntryFactory,
         private readonly AuditPersisterInterface $persister,
         private readonly AuditUserResolverInterface $userResolver,
         private readonly PendingAuditBuffer $buffer,
@@ -53,7 +53,6 @@ final class AuditLogListener
             }
 
             $diff = $this->changeSetExtractor->extractChanges($unitOfWork->getEntityChangeSet($entity), $metadata);
-            // Identifier completed on postPersist (may be generated on insert).
             $this->buffer->add(new PendingAudit($entity, AuditAction::Create, $diff));
         }
 
@@ -118,7 +117,7 @@ final class AuditLogListener
                 continue;
             }
 
-            $logs[] = $this->auditLogFactory->create(
+            $logs[] = $this->auditTrailEntryFactory->create(
                 $pending->entity,
                 $pending->action,
                 $pending->diff,
@@ -136,7 +135,6 @@ final class AuditLogListener
 
     private function shouldHandle(ObjectManager $entityManager): bool
     {
-        // Kill switch + provenance guard: never audit the audit store itself.
         return $this->enabled && $entityManager !== $this->auditEntityManager;
     }
 

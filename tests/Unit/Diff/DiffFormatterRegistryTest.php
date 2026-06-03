@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\Diff;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Diff;
 
-use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
-use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
-use Metadev\AuditLogBundle\Diff\Formatter\ValueFormatterInterface;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ValueFormatterInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

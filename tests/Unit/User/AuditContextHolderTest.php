@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\User;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\User;
 
-use Metadev\AuditLogBundle\User\AuditActor;
-use Metadev\AuditLogBundle\User\AuditContextHolder;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\User\AuditContextHolder;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

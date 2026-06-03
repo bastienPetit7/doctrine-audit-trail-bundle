@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Enum;
+namespace Metadev\DoctrineAuditTrailBundle\Enum;
 
 enum AuditAction: string
 {

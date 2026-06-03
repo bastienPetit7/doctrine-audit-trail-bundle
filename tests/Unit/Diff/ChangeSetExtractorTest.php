@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\Diff;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Diff;
 
-use Metadev\AuditLogBundle\Diff\ChangeSetExtractor;
-use Metadev\AuditLogBundle\Diff\DiffFormatterRegistry;
-use Metadev\AuditLogBundle\Diff\Formatter\ScalarValueFormatter;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Metadata\AuditMetadata;
+use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Persister;
+namespace Metadev\DoctrineAuditTrailBundle\Persister;
 
-use Metadev\AuditLogBundle\Entity\AuditLog;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 
 interface AuditPersisterInterface
 {
     /**
-     * @param iterable<AuditLog> $auditLogs
+     * @param iterable<AuditTrailEntry> $auditLogs
      */
     public function persist(iterable $auditLogs): void;
 }

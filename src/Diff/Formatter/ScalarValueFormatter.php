@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Diff\Formatter;
+namespace Metadev\DoctrineAuditTrailBundle\Diff\Formatter;
 
 final class ScalarValueFormatter implements ValueFormatterInterface
 {

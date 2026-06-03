@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Diff;
+namespace Metadev\DoctrineAuditTrailBundle\Diff;
 
-use Metadev\AuditLogBundle\Diff\Formatter\ValueFormatterInterface;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ValueFormatterInterface;
 
 final class DiffFormatterRegistry
 {

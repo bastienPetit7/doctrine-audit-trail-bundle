@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Persister;
+namespace Metadev\DoctrineAuditTrailBundle\Persister;
 
 use Doctrine\ORM\EntityManagerInterface;
 

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\User;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\User;
 
-use Metadev\AuditLogBundle\Tests\Fixtures\InMemoryUser;
-use Metadev\AuditLogBundle\User\AuditActor;
-use Metadev\AuditLogBundle\User\AuditContextHolder;
-use Metadev\AuditLogBundle\User\DefaultAuditUserResolver;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\InMemoryUser;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\User\AuditContextHolder;
+use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;

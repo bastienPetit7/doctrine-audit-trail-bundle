@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Buffer;
+namespace Metadev\DoctrineAuditTrailBundle\Buffer;
 
 final class PendingAuditBuffer
 {

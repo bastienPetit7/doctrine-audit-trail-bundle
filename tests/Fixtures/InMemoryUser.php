@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Fixtures;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Fixtures;
 
 use Symfony\Component\Security\Core\User\UserInterface;
 

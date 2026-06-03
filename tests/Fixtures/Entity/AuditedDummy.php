@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Fixtures\Entity;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity;
 
-use Metadev\AuditLogBundle\Attribute\Auditable;
-use Metadev\AuditLogBundle\Attribute\AuditIgnore;
+use Metadev\DoctrineAuditTrailBundle\Attribute\Auditable;
+use Metadev\DoctrineAuditTrailBundle\Attribute\AuditIgnore;
 
 #[Auditable(label: 'Dummy')]
 class AuditedDummy

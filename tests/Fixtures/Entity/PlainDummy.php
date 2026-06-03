@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Fixtures\Entity;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity;
 
 class PlainDummy
 {

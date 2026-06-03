@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Tests\Unit\Factory;
+namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Factory;
 
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Factory\AuditLogFactory;
-use Metadev\AuditLogBundle\Tests\Fixtures\Entity\AuditedDummy;
-use Metadev\AuditLogBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-final class AuditLogFactoryTest extends TestCase
+final class AuditTrailEntryFactoryTest extends TestCase
 {
     #[Test]
     public function it_should_build_an_entry_from_a_single_identifier_and_actor(): void
@@ -24,7 +24,7 @@ final class AuditLogFactoryTest extends TestCase
             userAgent: 'PHPUnit',
         );
 
-        $log = (new AuditLogFactory())->create(
+        $log = (new AuditTrailEntryFactory())->create(
             new AuditedDummy(),
             AuditAction::Update,
             ['before' => ['title' => 'a'], 'after' => ['title' => 'b']],
@@ -46,7 +46,7 @@ final class AuditLogFactoryTest extends TestCase
     #[Test]
     public function it_should_encode_a_composite_identifier_as_json(): void
     {
-        $log = (new AuditLogFactory())->create(
+        $log = (new AuditTrailEntryFactory())->create(
             new AuditedDummy(),
             AuditAction::Create,
             ['before' => [], 'after' => []],

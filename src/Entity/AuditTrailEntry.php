@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Entity;
+namespace Metadev\DoctrineAuditTrailBundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Metadev\AuditLogBundle\Enum\AuditAction;
-use Metadev\AuditLogBundle\Repository\AuditLogRepository;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Repository\AuditTrailEntryRepository;
 
-#[ORM\Entity(repositoryClass: AuditLogRepository::class)]
-#[ORM\Table(name: 'audit_log')]
-#[ORM\Index(name: 'idx_audit_log_entity', fields: ['entityClass', 'entityId'])]
-#[ORM\Index(name: 'idx_audit_log_created_at', fields: ['createdAt'])]
-class AuditLog
+#[ORM\Entity(repositoryClass: AuditTrailEntryRepository::class)]
+#[ORM\Table(name: 'audit_trail')]
+#[ORM\Index(name: 'idx_audit_trail_entity', fields: ['entityClass', 'entityId'])]
+#[ORM\Index(name: 'idx_audit_trail_created_at', fields: ['createdAt'])]
+class AuditTrailEntry
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

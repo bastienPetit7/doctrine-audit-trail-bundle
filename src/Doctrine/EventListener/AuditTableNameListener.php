@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Metadev\AuditLogBundle\Doctrine\EventListener;
+namespace Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Events;
-use Metadev\AuditLogBundle\Entity\AuditLog;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 
 #[AsDoctrineListener(event: Events::loadClassMetadata)]
 final class AuditTableNameListener
@@ -21,7 +21,7 @@ final class AuditTableNameListener
     {
         $classMetadata = $args->getClassMetadata();
 
-        if (AuditLog::class !== $classMetadata->getName()) {
+        if (AuditTrailEntry::class !== $classMetadata->getName()) {
             return;
         }
 

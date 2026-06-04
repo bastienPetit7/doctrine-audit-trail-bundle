@@ -26,7 +26,7 @@ trait InMemoryAuditEntityManagerTrait
     private function buildEntityManager(array $paths, array $classes): EntityManagerInterface
     {
         $config = ORMSetup::createAttributeMetadataConfiguration(paths: $paths, isDevMode: true);
-        if (method_exists($config, 'enableNativeLazyObjects')) {
+        if (\PHP_VERSION_ID >= 80400) {
             $config->enableNativeLazyObjects(true);
         }
 

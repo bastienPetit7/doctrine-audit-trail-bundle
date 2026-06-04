@@ -26,7 +26,9 @@ trait InMemoryAuditEntityManagerTrait
     private function buildEntityManager(array $paths, array $classes): EntityManagerInterface
     {
         $config = ORMSetup::createAttributeMetadataConfiguration(paths: $paths, isDevMode: true);
-        $config->enableNativeLazyObjects(true);
+        if (method_exists($config, 'enableNativeLazyObjects')) {
+            $config->enableNativeLazyObjects(true);
+        }
 
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
         $entityManager = new EntityManager($connection, $config);

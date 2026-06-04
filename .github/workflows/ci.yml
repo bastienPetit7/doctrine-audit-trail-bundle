@@ -96,7 +96,9 @@ jobs:
       # Symfony Flex is installed globally so SYMFONY_REQUIRE can constrain the
       # Symfony version without modifying the bundle's own composer.json.
       - name: Install Symfony Flex globally
-        run: composer global require --no-progress --no-scripts symfony/flex
+        run: |
+          composer global config --no-plugins allow-plugins.symfony/flex true
+          composer global require --no-progress --no-scripts --no-plugins symfony/flex
 
       - name: Install dependencies
         run: >

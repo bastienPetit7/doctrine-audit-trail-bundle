@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Metadev\DoctrineAuditTrailBundle;
 
+use Metadev\DoctrineAuditTrailBundle\DependencyInjection\Compiler\AuditFormatterPass;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
@@ -17,6 +18,11 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
 {
     private const DEFAULT_ENTITY_MANAGER = 'audit';
     private const DEFAULT_TABLE_NAME = 'audit_trail';
+
+    public function build(ContainerBuilder $container): void
+    {
+        $container->addCompilerPass(new AuditFormatterPass());
+    }
 
     public function configure(DefinitionConfigurator $definition): void
     {

@@ -25,6 +25,7 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^11.0",
+        "symfony/framework-bundle": "^6.4|^7.0|^8.0",
         "symfony/http-foundation": "^6.4|^7.0|^8.0",
         "symfony/security-core": "^6.4|^7.0|^8.0"
     },
@@ -46,6 +47,7 @@
         "test": "vendor/bin/phpunit",
         "test-unit": "vendor/bin/phpunit --testsuite=unit",
         "test-integration": "vendor/bin/phpunit --testsuite=integration",
+        "test-functional": "vendor/bin/phpunit --testsuite=functional",
         "cs-fix": "vendor/bin/php-cs-fixer fix",
         "cs-check": "vendor/bin/php-cs-fixer fix --dry-run --diff",
         "phpstan": "vendor/bin/phpstan analyse --configuration=phpstan.dist.neon --memory-limit=512M",

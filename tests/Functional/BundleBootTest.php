@@ -4,32 +4,87 @@ declare(strict_types=1);
 
 namespace Metadev\DoctrineAuditTrailBundle\Tests\Functional;
 
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
-use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
-use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
-use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
-use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\DoctrineAuditTrailBundle;
+use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
-use Metadev\DoctrineAuditTrailBundle\Tests\Functional\App\TestKernel;
-use Metadev\DoctrineAuditTrailBundle\User\AuditContextHolder;
+use Metadev\DoctrineAuditTrailBundle\Tests\Functional\Resources\StaticUserResolver;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
+use Nyholm\BundleTest\TestKernel;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\HttpKernel\KernelInterface;
 
+/**
+ * Integration tests that boot the bundle inside a real Symfony container and
+ * verify the wiring effects, not just service definitions (covered in unit tests).
+ *
+ * @internal
+ */
+#[Medium]
 final class BundleBootTest extends KernelTestCase
 {
+    private const DEFAULT_CONFIG = __DIR__.'/Resources/config/audit_default.yaml';
+    private const CUSTOM_CONFIG = __DIR__.'/Resources/config/audit_custom.yaml';
+    private const DISABLED_CONFIG = __DIR__.'/Resources/config/audit_disabled.yaml';
+    private const CUSTOM_RESOLVER_CONFIG = __DIR__.'/Resources/config/audit_with_custom_resolver.yaml';
+
+    private mixed $errorHandlerSnapshot = null;
+    private mixed $exceptionHandlerSnapshot = null;
+
     protected static function getKernelClass(): string
     {
         return TestKernel::class;
     }
 
-    private mixed $errorHandlerSnapshot = null;
+    /**
+     * @param array{
+     *     bundles?: list<class-string<\Symfony\Component\HttpKernel\Bundle\BundleInterface>>,
+     *     baseConfigs?: list<string>,
+     *     config?: callable,
+     * } $options
+     */
+    protected static function createKernel(array $options = []): KernelInterface
+    {
+        $bundles = $options['bundles'] ?? [
+            FrameworkBundle::class,
+            DoctrineBundle::class,
+            DoctrineAuditTrailBundle::class,
+        ];
+        $baseConfigs = $options['baseConfigs'] ?? [
+            __DIR__.'/Resources/config/framework.yaml',
+            __DIR__.'/Resources/config/doctrine.yaml',
+        ];
 
-    private mixed $exceptionHandlerSnapshot = null;
+        /** @var TestKernel $kernel */
+        $kernel = parent::createKernel($options);
 
+        foreach ($bundles as $bundle) {
+            $kernel->addTestBundle($bundle);
+        }
+        foreach ($baseConfigs as $config) {
+            $kernel->addTestConfig($config);
+        }
+
+        $kernel->handleOptions($options);
+
+        return $kernel;
+    }
+
+    /**
+     * Symfony's HttpKernel ErrorListener and other framework components install
+     * global PHP error/exception handlers that survive `kernel->shutdown()`.
+     * PHPUnit's `failOnRisky` flags this as a leaked handler. We snapshot the
+     * stack top before each test, then pop down to it on teardown.
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -74,95 +129,71 @@ final class BundleBootTest extends KernelTestCase
         }
     }
 
-    #[Test]
-    public function it_should_boot_the_kernel_without_errors(): void
+    private function bootWithAuditConfig(string $auditConfigPath): void
     {
-        self::bootKernel();
-
-        self::assertTrue(self::getContainer()->has('doctrine'));
+        self::bootKernel(['config' => static function (TestKernel $kernel) use ($auditConfigPath): void {
+            $kernel->addTestConfig($auditConfigPath);
+        }]);
     }
 
     #[Test]
-    public function it_should_register_the_audit_trail_listener(): void
+    public function it_should_boot_with_default_configuration(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::DEFAULT_CONFIG);
 
-        self::assertInstanceOf(
-            AuditTrailListener::class,
-            self::getContainer()->get(AuditTrailListener::class),
-        );
+        $container = self::getContainer();
+
+        self::assertTrue($container->has(AuditTrailListener::class));
+        self::assertTrue($container->has(AuditPersisterInterface::class));
+        self::assertInstanceOf(DoctrineAuditPersister::class, $container->get(AuditPersisterInterface::class));
+        self::assertSame('audit_trail', $container->getParameter('doctrine_audit_trail.storage.table_name'));
     }
 
     #[Test]
-    public function it_should_register_the_table_name_listener(): void
+    public function it_should_apply_a_fully_customised_configuration(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::CUSTOM_CONFIG);
 
-        self::assertInstanceOf(
-            AuditTableNameListener::class,
-            self::getContainer()->get(AuditTableNameListener::class),
-        );
+        $container = self::getContainer();
+
+        self::assertTrue($container->getParameter('doctrine_audit_trail.enabled'));
+        self::assertSame(['password', 'plainPassword'], $container->getParameter('doctrine_audit_trail.ignored_fields'));
+        self::assertSame('custom_audit', $container->getParameter('doctrine_audit_trail.storage.table_name'));
+        self::assertSame('test-cli', $container->getParameter('doctrine_audit_trail.actor.fallback_label'));
     }
 
     #[Test]
-    public function it_should_register_the_persister_interface_alias(): void
+    public function it_should_register_the_audit_trail_entry_mapping_on_the_configured_entity_manager(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::CUSTOM_CONFIG);
 
-        self::assertInstanceOf(
-            DoctrineAuditPersister::class,
-            self::getContainer()->get(AuditPersisterInterface::class),
-        );
+        /** @var EntityManagerInterface $auditEm */
+        $auditEm = self::getContainer()->get('doctrine.orm.audit_entity_manager');
+
+        /** @var ClassMetadata<AuditTrailEntry> $metadata */
+        $metadata = $auditEm->getClassMetadata(AuditTrailEntry::class);
+        self::assertSame('custom_audit', $metadata->getTableName());
     }
 
     #[Test]
-    public function it_should_register_the_user_resolver_interface_alias(): void
+    public function it_should_wire_the_audit_persister_to_the_configured_audit_entity_manager(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::DEFAULT_CONFIG);
 
-        self::assertInstanceOf(
-            DefaultAuditUserResolver::class,
-            self::getContainer()->get(AuditUserResolverInterface::class),
-        );
+        $persister = self::getContainer()->get(AuditPersisterInterface::class);
+        $auditEm = self::getContainer()->get('doctrine.orm.audit_entity_manager');
+
+        self::assertInstanceOf(DoctrineAuditPersister::class, $persister);
+
+        $emProperty = (new \ReflectionObject($persister))->getProperty('auditEntityManager');
+
+        self::assertSame($auditEm, $emProperty->getValue($persister));
     }
 
     #[Test]
-    public function it_should_register_the_metadata_factory(): void
+    public function it_should_format_a_datetime_value_through_the_default_formatter_chain(): void
     {
-        self::bootKernel();
-
-        self::assertInstanceOf(
-            AuditMetadataFactory::class,
-            self::getContainer()->get(AuditMetadataFactory::class),
-        );
-    }
-
-    #[Test]
-    public function it_should_register_the_entry_factory(): void
-    {
-        self::bootKernel();
-
-        self::assertInstanceOf(
-            AuditTrailEntryFactory::class,
-            self::getContainer()->get(AuditTrailEntryFactory::class),
-        );
-    }
-
-    #[Test]
-    public function it_should_register_the_context_holder(): void
-    {
-        self::bootKernel();
-
-        self::assertInstanceOf(
-            AuditContextHolder::class,
-            self::getContainer()->get(AuditContextHolder::class),
-        );
-    }
-
-    #[Test]
-    public function it_should_inject_formatters_into_the_registry(): void
-    {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::DEFAULT_CONFIG);
 
         $registry = self::getContainer()->get(DiffFormatterRegistry::class);
 
@@ -174,26 +205,44 @@ final class BundleBootTest extends KernelTestCase
     }
 
     #[Test]
-    public function it_should_register_the_scalar_value_formatter(): void
+    public function it_should_resolve_the_default_user_resolver_when_no_custom_one_is_configured(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::DEFAULT_CONFIG);
 
-        self::assertInstanceOf(
-            ScalarValueFormatter::class,
-            self::getContainer()->get(ScalarValueFormatter::class),
-        );
+        $resolver = self::getContainer()->get(AuditUserResolverInterface::class);
+
+        self::assertInstanceOf(DefaultAuditUserResolver::class, $resolver);
+
+        // Outside an HTTP request and with no SecurityBundle present, the resolver
+        // must still return an actor labelled with the configured CLI fallback.
+        $actor = $resolver->resolve();
+        self::assertSame('cli', $actor->label);
     }
 
     #[Test]
-    public function it_should_apply_config_parameters(): void
+    public function it_should_swap_the_user_resolver_alias_for_a_user_defined_implementation(): void
     {
-        self::bootKernel();
+        $this->bootWithAuditConfig(self::CUSTOM_RESOLVER_CONFIG);
+
+        $resolver = self::getContainer()->get(AuditUserResolverInterface::class);
+
+        self::assertInstanceOf(StaticUserResolver::class, $resolver);
+        self::assertSame('static-test-user', $resolver->resolve()->label);
+    }
+
+    #[Test]
+    public function it_should_inject_the_disabled_flag_into_the_listener(): void
+    {
+        $this->bootWithAuditConfig(self::DISABLED_CONFIG);
 
         $container = self::getContainer();
+        $listener = $container->get(AuditTrailListener::class);
 
-        self::assertTrue($container->getParameter('doctrine_audit_trail.enabled'));
-        self::assertSame(['password', 'plainPassword'], $container->getParameter('doctrine_audit_trail.ignored_fields'));
-        self::assertSame('test-cli', $container->getParameter('doctrine_audit_trail.actor.fallback_label'));
-        self::assertSame('custom_audit', $container->getParameter('doctrine_audit_trail.storage.table_name'));
+        self::assertInstanceOf(AuditTrailListener::class, $listener);
+        self::assertFalse($container->getParameter('doctrine_audit_trail.enabled'));
+
+        // Behavioural check: the constructor-bound flag is what shouldHandle() reads.
+        $enabledProperty = (new \ReflectionObject($listener))->getProperty('enabled');
+        self::assertFalse($enabledProperty->getValue($listener));
     }
 }

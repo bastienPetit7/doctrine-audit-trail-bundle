@@ -904,6 +904,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     framework?: FrameworkConfig,
  *     doctrine?: DoctrineConfig,
  *     doctrine_audit_trail?: DoctrineAuditTrailConfig,
+ *     "when@test"?: array{
+ *         imports?: ImportsConfig,
+ *         parameters?: ParametersConfig,
+ *         services?: ServicesConfig,
+ *         framework?: FrameworkConfig,
+ *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,

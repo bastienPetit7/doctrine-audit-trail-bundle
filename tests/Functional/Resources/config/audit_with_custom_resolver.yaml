@@ -1,0 +1,8 @@
+services:
+    Metadev\DoctrineAuditTrailBundle\Tests\Functional\Resources\StaticUserResolver:
+        autowire: true
+        public: true
+
+doctrine_audit_trail:
+    actor:
+        user_resolver: Metadev\DoctrineAuditTrailBundle\Tests\Functional\Resources\StaticUserResolver

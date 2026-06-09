@@ -1,0 +1,8 @@
+doctrine_audit_trail:
+    enabled: true
+    storage:
+        entity_manager: audit
+        table_name: custom_audit
+    ignored_fields: ['password', 'plainPassword']
+    actor:
+        fallback_label: test-cli

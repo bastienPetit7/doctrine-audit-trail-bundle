@@ -28,6 +28,8 @@ class AuditTrailEntry
         private readonly string $entityClass,
         #[ORM\Column(type: Types::STRING, length: 255)]
         private readonly string $entityId,
+        #[ORM\Column(type: Types::STRING, length: 255, nullable: true)]
+        private readonly ?string $entityLabel,
         #[ORM\Column(type: Types::STRING, length: 16, enumType: AuditAction::class)]
         private readonly AuditAction $action,
         #[ORM\Column(type: Types::JSON)]
@@ -60,6 +62,11 @@ class AuditTrailEntry
     public function getEntityId(): string
     {
         return $this->entityId;
+    }
+
+    public function getEntityLabel(): ?string
+    {
+        return $this->entityLabel;
     }
 
     public function getAction(): AuditAction

@@ -16,6 +16,7 @@ final class PendingAudit
         public readonly object $entity,
         public readonly AuditAction $action,
         public readonly array $diff,
+        public readonly ?string $entityLabel = null,
         public ?array $identifier = null,
     ) {
     }

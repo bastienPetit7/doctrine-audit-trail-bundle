@@ -54,6 +54,7 @@ final class DoctrineAuditPersisterTest extends TestCase
         return new AuditTrailEntry(
             entityClass: 'App\\Entity\\Post',
             entityId: $id,
+            entityLabel: 'Post',
             action: AuditAction::Create,
             diff: ['before' => [], 'after' => ['title' => 'Hello']],
             userId: '1',

@@ -15,11 +15,12 @@ final class AuditTrailEntryFactory
      * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
      * @param array<string, mixed>                                             $identifier Doctrine identifier values
      */
-    public function create(object $entity, AuditAction $action, array $diff, AuditActor $actor, array $identifier): AuditTrailEntry
+    public function create(object $entity, AuditAction $action, array $diff, AuditActor $actor, array $identifier, ?string $entityLabel = null): AuditTrailEntry
     {
         return new AuditTrailEntry(
             entityClass: $this->resolveRealClass($entity),
             entityId: $this->formatIdentifier($identifier),
+            entityLabel: $entityLabel,
             action: $action,
             diff: $diff,
             userId: $actor->userId,

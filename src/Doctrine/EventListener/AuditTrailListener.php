@@ -53,7 +53,7 @@ final class AuditTrailListener
             }
 
             $diff = $this->changeSetExtractor->extractChanges($unitOfWork->getEntityChangeSet($entity), $metadata);
-            $this->buffer->add(new PendingAudit($entity, AuditAction::Create, $diff));
+            $this->buffer->add(new PendingAudit($entity, AuditAction::Create, $diff, entityLabel: $metadata->label));
         }
 
         foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
@@ -67,7 +67,8 @@ final class AuditTrailListener
                 $entity,
                 AuditAction::Update,
                 $diff,
-                $this->identifierOf($entityManager, $entity),
+                entityLabel: $metadata->label,
+                identifier: $this->identifierOf($entityManager, $entity),
             ));
         }
 
@@ -82,7 +83,8 @@ final class AuditTrailListener
                 $entity,
                 AuditAction::Delete,
                 $diff,
-                $this->identifierOf($entityManager, $entity),
+                entityLabel: $metadata->label,
+                identifier: $this->identifierOf($entityManager, $entity),
             ));
         }
     }
@@ -123,6 +125,7 @@ final class AuditTrailListener
                 $pending->diff,
                 $actor,
                 $pending->identifier,
+                $pending->entityLabel,
             );
         }
 

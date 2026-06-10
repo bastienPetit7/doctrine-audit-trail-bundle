@@ -76,6 +76,7 @@ final class AuditTrailListenerTest extends TestCase
         self::assertSame(AuditAction::Create, $logs[0]->getAction());
         self::assertSame(AuditedProduct::class, $logs[0]->getEntityClass());
         self::assertSame((string) $product->id, $logs[0]->getEntityId());
+        self::assertSame('Product', $logs[0]->getEntityLabel());
         self::assertSame('admin', $logs[0]->getUserIdentifier());
         self::assertSame('Widget', $logs[0]->getDiff()['after']['name']);
         self::assertArrayNotHasKey('secret', $logs[0]->getDiff()['after']);

@@ -34,6 +34,7 @@ final class AuditTrailEntryFactoryTest extends TestCase
 
         self::assertSame(AuditedDummy::class, $log->getEntityClass());
         self::assertSame('7', $log->getEntityId());
+        self::assertNull($log->getEntityLabel());
         self::assertSame(AuditAction::Update, $log->getAction());
         self::assertSame(['before' => ['title' => 'a'], 'after' => ['title' => 'b']], $log->getDiff());
         self::assertSame('42', $log->getUserId());
@@ -41,6 +42,21 @@ final class AuditTrailEntryFactoryTest extends TestCase
         self::assertSame('203.0.113.7', $log->getIpAddress());
         self::assertSame('PHPUnit', $log->getUserAgent());
         self::assertSame('jane', $log->getActorLabel());
+    }
+
+    #[Test]
+    public function it_should_carry_the_entity_label_into_the_trail_entry(): void
+    {
+        $log = (new AuditTrailEntryFactory())->create(
+            new AuditedDummy(),
+            AuditAction::Create,
+            ['before' => [], 'after' => []],
+            new AuditActor(label: 'cli'),
+            ['id' => 1],
+            'Dummy',
+        );
+
+        self::assertSame('Dummy', $log->getEntityLabel());
     }
 
     #[Test]

@@ -148,6 +148,9 @@ class Post
 
 Entities without `#[Auditable]` are ignored.
 
+The optional `label` is persisted on each row in the `entity_label` column — useful
+for admin UIs that want a human-readable name next to (or instead of) the FQCN.
+
 ## Reading the trail
 
 ```php

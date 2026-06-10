@@ -9,7 +9,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 
 /** @extends ServiceEntityRepository<AuditTrailEntry> */
-class AuditTrailEntryRepository extends ServiceEntityRepository
+final class AuditTrailEntryRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

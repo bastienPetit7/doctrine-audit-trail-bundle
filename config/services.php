@@ -31,7 +31,10 @@ return static function (ContainerConfigurator $container): void {
     $services->set(AuditTrailEntryRepository::class);
 
     $services->set(AuditMetadataFactory::class)
-        ->args([param('doctrine_audit_trail.ignored_fields')]);
+        ->args([
+            param('doctrine_audit_trail.ignored_fields'),
+            param('doctrine_audit_trail.force_audit_fields'),
+        ]);
 
     $services->set(AuditContextHolder::class);
 

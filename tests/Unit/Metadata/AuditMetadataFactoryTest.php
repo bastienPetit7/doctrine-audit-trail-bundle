@@ -46,6 +46,51 @@ final class AuditMetadataFactoryTest extends TestCase
     }
 
     #[Test]
+    public function it_should_ignore_built_in_blacklisted_fields_by_default(): void
+    {
+        $factory = new AuditMetadataFactory();
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertTrue($metadata->isFieldIgnored('apiKey'));
+        self::assertTrue($metadata->isFieldIgnored('refreshToken'));
+        self::assertFalse($metadata->isFieldIgnored('title'));
+    }
+
+    #[Test]
+    public function it_should_keep_the_blacklist_when_user_adds_custom_ignored_fields(): void
+    {
+        $factory = new AuditMetadataFactory(['title']);
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertTrue($metadata->isFieldIgnored('title'));
+        self::assertTrue($metadata->isFieldIgnored('apiKey'));
+    }
+
+    #[Test]
+    public function it_should_re_enable_a_blacklisted_field_when_listed_in_force_audit_fields(): void
+    {
+        $factory = new AuditMetadataFactory(forceAuditFields: ['refreshToken']);
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertFalse($metadata->isFieldIgnored('refreshToken'));
+        self::assertTrue($metadata->isFieldIgnored('apiKey'));
+    }
+
+    #[Test]
+    public function it_should_keep_audit_ignore_precedence_over_force_audit_fields(): void
+    {
+        $factory = new AuditMetadataFactory(forceAuditFields: ['password']);
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        // #[AuditIgnore] on AuditedDummy::$password wins over the global escape hatch.
+        self::assertTrue($metadata->isFieldIgnored('password'));
+    }
+
+    #[Test]
     public function it_should_treat_a_bare_class_as_not_auditable(): void
     {
         $factory = new AuditMetadataFactory();

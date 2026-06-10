@@ -12,6 +12,29 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Security
+
+- **Secure-by-default field blacklist.** `ignored_fields` now defaults to a
+  built-in list of common credential/secret names (`password`, `plainPassword`,
+  `apiKey`, `apiToken`, `accessToken`, `refreshToken`, `secret`, `token`, `salt`,
+  `pin`, `cvv`) instead of being empty. User-configured `ignored_fields` are
+  **merged on top** of this blacklist rather than replacing it, removing the
+  silent PII/secret leak that occurred when a sensitive property was added later
+  without updating the audit configuration.
+
+### Added
+
+- `force_audit_fields` configuration key — an explicit escape hatch to record a
+  field that the built-in blacklist would otherwise exclude (e.g. auditing
+  `refreshToken` to detect token replay). A property-level `#[AuditIgnore]`
+  still takes precedence over this list.
+
+### Changed
+
+- **BC (minor):** a field previously audited and named like a blacklisted
+  default (e.g. `token`, `secret`) is no longer recorded unless added to
+  `force_audit_fields`. Review the blacklist above and opt back in if needed.
+
 ## [0.1.0-beta] - 2026-06-09
 
 First public beta. The bundle is feature-complete for its initial scope; the

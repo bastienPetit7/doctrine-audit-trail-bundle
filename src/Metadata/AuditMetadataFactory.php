@@ -10,6 +10,26 @@ use Metadev\DoctrineAuditTrailBundle\Attribute\AuditIgnore;
 
 final class AuditMetadataFactory
 {
+    /**
+     * Built-in security blacklist: field names never recorded in a diff by default.
+     * Merged with the user-defined ignored fields; opt back in via $forceAuditFields.
+     *
+     * @var list<string>
+     */
+    public const DEFAULT_IGNORED_FIELDS = [
+        'password',
+        'plainPassword',
+        'apiKey',
+        'apiToken',
+        'accessToken',
+        'refreshToken',
+        'secret',
+        'token',
+        'salt',
+        'pin',
+        'cvv',
+    ];
+
     /** @var array<class-string, AuditMetadata> */
     private array $cache = [];
 
@@ -17,11 +37,18 @@ final class AuditMetadataFactory
     private readonly array $globallyIgnoredFields;
 
     /**
-     * @param list<string> $globallyIgnoredFields
+     * @param list<string> $ignoredFields    User-defined fields to ignore, merged on top of the built-in blacklist
+     * @param list<string> $forceAuditFields Escape hatch: fields audited even if blacklisted by default
      */
-    public function __construct(array $globallyIgnoredFields = [])
+    public function __construct(array $ignoredFields = [], array $forceAuditFields = [])
     {
-        $this->globallyIgnoredFields = array_fill_keys($globallyIgnoredFields, true);
+        $ignored = array_fill_keys([...self::DEFAULT_IGNORED_FIELDS, ...$ignoredFields], true);
+
+        foreach ($forceAuditFields as $field) {
+            unset($ignored[$field]);
+        }
+
+        $this->globallyIgnoredFields = $ignored;
     }
 
     /**

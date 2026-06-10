@@ -9,6 +9,8 @@ use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
+use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -56,6 +58,23 @@ final class ChangeSetExtractorTest extends TestCase
         self::assertArrayHasKey('title', $diff['after']);
         self::assertArrayNotHasKey('password', $diff['after']);
         self::assertArrayNotHasKey('password', $diff['before']);
+    }
+
+    #[Test]
+    public function it_should_not_record_a_blacklisted_field_in_the_diff_by_default(): void
+    {
+        $metadata = (new AuditMetadataFactory())->getMetadata(AuditedDummy::class);
+
+        $changeSet = [
+            'title' => ['Old', 'New'],
+            'apiKey' => ['key-a', 'key-b'],
+        ];
+
+        $diff = $this->extractor()->extractChanges($changeSet, $metadata);
+
+        self::assertArrayHasKey('title', $diff['after']);
+        self::assertArrayNotHasKey('apiKey', $diff['after']);
+        self::assertArrayNotHasKey('apiKey', $diff['before']);
     }
 
     #[Test]

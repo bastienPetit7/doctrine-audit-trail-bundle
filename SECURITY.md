@@ -93,8 +93,11 @@ The following are **not** considered vulnerabilities of this bundle:
 
 When integrating this bundle, we recommend:
 
-- Mark sensitive fields (passwords, tokens, secrets, PII) with
-  `#[AuditIgnore]` or add them to the global `ignored_fields` list.
+- A built-in blacklist already excludes common credential/secret field names
+  (`password`, `plainPassword`, `apiKey`, `apiToken`, `accessToken`,
+  `refreshToken`, `secret`, `token`, `salt`, `pin`, `cvv`) by default. Mark any
+  remaining sensitive fields (other PII) with `#[AuditIgnore]` or add them to the
+  global `ignored_fields` list (merged with the blacklist, not replacing it).
 - Restrict read access to the `audit_trail_entry` table — audit data is
   often more sensitive than the source data.
 - Configure a retention policy aligned with your GDPR / legal

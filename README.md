@@ -21,8 +21,11 @@ label for CLI / messenger / anonymous contexts).
   through a **dedicated entity manager** so the audited unit of work is never
   touched and the listener never re-enters itself.
 - **Extensible**: value formatting and actor resolution are swappable.
-- **GDPR-ready**: per-field ignore via `#[AuditIgnore]` and a global
-  `ignored_fields` allow-list keeps sensitive data out of the trail.
+- **GDPR-aware**: ships a built-in blacklist of common secret/credential field
+  names (`password`, `apiKey`, `accessToken`, …), per-field ignore via
+  `#[AuditIgnore]`, and a global `ignored_fields` list. It provides the primitives
+  to comply — retention, anonymisation and access control remain the integrator's
+  responsibility.
 
 ## Table of contents
 
@@ -121,9 +124,15 @@ doctrine_audit_trail:
         entity_manager: audit           # dedicated EM name
         table_name: audit_trail
 
-    ignored_fields:                     # excluded from every diff
-        - password
-        - plainPassword
+    # A built-in security blacklist is always applied first (secure by default):
+    #   password, plainPassword, apiKey, apiToken, accessToken, refreshToken,
+    #   secret, token, salt, pin, cvv
+    ignored_fields:                     # extra fields, MERGED with the blacklist
+        - ssn
+        - iban
+
+    force_audit_fields:                 # escape hatch: audit a blacklisted field
+        - refreshToken                  # e.g. to detect token replay
 
     actor:
         fallback_label: cli             # label outside an HTTP request

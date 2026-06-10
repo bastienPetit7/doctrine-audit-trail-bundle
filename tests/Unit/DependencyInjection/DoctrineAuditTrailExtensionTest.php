@@ -84,6 +84,7 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
 
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.enabled', true);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.ignored_fields', []);
+        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.force_audit_fields', []);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.actor.fallback_label', 'cli');
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.storage.table_name', 'audit_trail');
     }
@@ -93,13 +94,15 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
     {
         $this->load([
             'enabled' => false,
-            'ignored_fields' => ['password', 'plainPassword'],
+            'ignored_fields' => ['ssn', 'iban'],
+            'force_audit_fields' => ['refreshToken'],
             'storage' => ['table_name' => 'custom_audit'],
             'actor' => ['fallback_label' => 'worker'],
         ]);
 
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.enabled', false);
-        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.ignored_fields', ['password', 'plainPassword']);
+        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.ignored_fields', ['ssn', 'iban']);
+        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.force_audit_fields', ['refreshToken']);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.actor.fallback_label', 'worker');
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.storage.table_name', 'custom_audit');
     }

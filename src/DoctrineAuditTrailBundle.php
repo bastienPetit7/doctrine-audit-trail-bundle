@@ -46,7 +46,12 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                     ->end()
                 ->end()
                 ->arrayNode('ignored_fields')
-                    ->info('Fields excluded from the diff for every audited entity.')
+                    ->info('Extra fields excluded from the diff, merged on top of the built-in security blacklist.')
+                    ->scalarPrototype()->end()
+                    ->defaultValue([])
+                ->end()
+                ->arrayNode('force_audit_fields')
+                    ->info('Escape hatch: fields recorded even if present in the built-in security blacklist.')
                     ->scalarPrototype()->end()
                     ->defaultValue([])
                 ->end()
@@ -75,6 +80,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
 
         $builder->setParameter('doctrine_audit_trail.enabled', $config['enabled'] ?? true);
         $builder->setParameter('doctrine_audit_trail.ignored_fields', $config['ignored_fields'] ?? []);
+        $builder->setParameter('doctrine_audit_trail.force_audit_fields', $config['force_audit_fields'] ?? []);
         $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
 
         $tableName = $config['storage']['table_name'] ?? self::DEFAULT_TABLE_NAME;

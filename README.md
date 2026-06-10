@@ -203,6 +203,56 @@ doctrine_audit_trail:
         user_resolver: App\Audit\MyResolver
 ```
 
+### Anonymising actor PII (IP / identifier) — GDPR
+
+The bundle is intentionally **un-opinionated** about anonymisation: it records the
+actor as resolved, and lets *you* apply your own policy. All actor PII
+(`ipAddress`, `userIdentifier`, `userAgent`) flows through
+`AuditUserResolverInterface` **before** the entry is persisted, so the cleanest
+approach is to **decorate** the default resolver and rewrite only what you need.
+`AuditActor` exposes immutable `withIpAddress()`, `withUserIdentifier()` and
+`withUserAgent()` copy helpers for exactly this:
+
+```php
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
+use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireDecorated;
+
+#[AsDecorator(decorates: AuditUserResolverInterface::class)]
+final readonly class GdprAuditUserResolver implements AuditUserResolverInterface
+{
+    public function __construct(
+        #[AutowireDecorated] private AuditUserResolverInterface $inner,
+        #[Autowire('%kernel.secret%')] private string $salt,
+    ) {
+    }
+
+    public function resolve(): AuditActor
+    {
+        $actor = $this->inner->resolve();
+
+        return $actor
+            // CNIL: drop the last octet — 192.168.1.42 → 192.168.1.0
+            ->withIpAddress(
+                null === $actor->ipAddress
+                    ? null
+                    : preg_replace('/\.\d+$/', '.0', $actor->ipAddress),
+            )
+            // Pseudonymise the identifier with a salted hash
+            ->withUserIdentifier(
+                null === $actor->userIdentifier
+                    ? null
+                    : hash('sha256', $actor->userIdentifier.$this->salt),
+            );
+    }
+}
+```
+
+This keeps anonymisation, salting and retention decisions in *your* compliance
+scope — the bundle only ships the primitives.
+
 ### Labelling CLI / messenger actors
 
 Inject `AuditContextHolder` and set an explicit actor; it takes precedence over

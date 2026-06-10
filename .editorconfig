@@ -1,0 +1,35 @@
+# EditorConfig — https://editorconfig.org
+# Keeps formatting consistent across editors/IDEs (PhpStorm, VS Code, Vim, ...).
+# Complements PHP-CS-Fixer: CS-Fixer reformats PHP at commit time,
+# .editorconfig enforces baseline conventions while typing, for every file type.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# YAML is space-sensitive and conventionally 2-space indented (Symfony config).
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON (composer.json, package.json, etc.) — 4 spaces matches Composer's own dump.
+[*.json]
+indent_size = 4
+
+# Neon (PHPStan config) — 1 tab is the upstream convention.
+[*.neon]
+indent_style = tab
+
+# Markdown — trailing spaces are syntactically meaningful (hard line breaks),
+# so leave them alone.
+[*.md]
+trim_trailing_whitespace = false
+
+# Makefiles require literal tabs.
+[Makefile]
+indent_style = tab

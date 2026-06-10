@@ -3,13 +3,21 @@
     "description": "Doctrine audit trail bundle for Symfony: tracks entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
     "type": "symfony-bundle",
     "license": "MIT",
-    "keywords": ["symfony", "doctrine", "audit", "audit-trail", "gdpr"],
+    "keywords": ["symfony", "symfony-bundle", "doctrine", "audit", "audit-trail", "audit-log", "gdpr", "history", "logging"],
+    "homepage": "https://github.com/bastienPetit7/doctrine-audit-trail-bundle",
     "authors": [
         {
             "name": "Bastien Petit",
-            "email": "bastien.petit7@gmail.com"
+            "email": "bastien.petit7@gmail.com",
+            "homepage": "https://github.com/bastienPetit7",
+            "role": "Maintainer"
         }
     ],
+    "support": {
+        "issues": "https://github.com/bastienPetit7/doctrine-audit-trail-bundle/issues",
+        "source": "https://github.com/bastienPetit7/doctrine-audit-trail-bundle",
+        "docs": "https://github.com/bastienPetit7/doctrine-audit-trail-bundle#readme"
+    },
     "require": {
         "php": ">=8.2",
         "doctrine/doctrine-bundle": "^2.10|^3.0",

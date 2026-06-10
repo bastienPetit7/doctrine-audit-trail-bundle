@@ -1,5 +1,14 @@
 # DoctrineAuditTrailBundle
 
+[![CI](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/actions/workflows/ci.yml)
+[![Latest Stable Version](https://img.shields.io/packagist/v/metadev/doctrine-audit-trail-bundle.svg?label=stable)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
+[![Total Downloads](https://img.shields.io/packagist/dt/metadev/doctrine-audit-trail-bundle.svg)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
+[![License](https://img.shields.io/packagist/l/metadev/doctrine-audit-trail-bundle.svg)](LICENSE)
+[![PHP Version](https://img.shields.io/packagist/php-v/metadev/doctrine-audit-trail-bundle.svg?logo=php&logoColor=white)](https://www.php.net/)
+[![Symfony Version](https://img.shields.io/badge/symfony-%5E6.4%20%7C%7C%20%5E7.0%20%7C%7C%20%5E8.0-black?logo=symfony)](https://symfony.com/)
+[![PHPStan Level](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](phpstan.dist.neon)
+[![Code Style: PHP-CS-Fixer](https://img.shields.io/badge/code%20style-PHP--CS--Fixer-blue.svg)](.php-cs-fixer.dist.php)
+
 Automatic, opt-in audit trail for Doctrine entity mutations on Symfony.
 
 Every create / update / delete of a marked entity is recorded as a structured
@@ -12,8 +21,33 @@ label for CLI / messenger / anonymous contexts).
   through a **dedicated entity manager** so the audited unit of work is never
   touched and the listener never re-enters itself.
 - **Extensible**: value formatting and actor resolution are swappable.
+- **GDPR-ready**: per-field ignore via `#[AuditIgnore]` and a global
+  `ignored_fields` allow-list keeps sensitive data out of the trail.
 
-Requires PHP >= 8.2, Symfony 6.4 / 7 / 8, Doctrine ORM 2.14+ / 3.
+## Table of contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Host wiring](#host-wiring)
+- [Configuration](#configuration)
+- [Marking entities](#marking-entities)
+- [Reading the trail](#reading-the-trail)
+- [Extension points](#extension-points)
+- [Quality & tests](#quality--tests)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Requirements
+
+| Component       | Version                  |
+|-----------------|--------------------------|
+| PHP             | `>= 8.2`                 |
+| Symfony         | `^6.4 \|\| ^7.0 \|\| ^8.0` |
+| Doctrine ORM    | `^2.14 \|\| ^3.0`         |
+| Doctrine Bundle | `^2.10 \|\| ^3.0`         |
+
+The CI matrix runs on **PHP 8.2 / 8.3 / 8.4 / 8.5** against **Symfony 6.4 / 7.x / 8.x**
+(Symfony 8 requires PHP ≥ 8.4), plus a `--prefer-lowest` run on PHP 8.2 + Symfony 6.4.
 
 ## Installation
 
@@ -21,7 +55,7 @@ Requires PHP >= 8.2, Symfony 6.4 / 7 / 8, Doctrine ORM 2.14+ / 3.
 composer require metadev/doctrine-audit-trail-bundle
 ```
 
-Register the bundle (Flex does this automatically):
+Register the bundle (Symfony Flex does this automatically):
 
 ```php
 // config/bundles.php
@@ -170,15 +204,38 @@ $this->contextHolder->reset();
 
 ## Quality & tests
 
-```bash
-# from the host project (the bundle is symlinked into vendor):
-./bin/phpunit --testsuite "Doctrine Audit Trail Bundle Test Suite"
+The bundle ships with a full quality pipeline: PHPUnit (unit + integration +
+functional), PHPStan level 8 and PHP-CS-Fixer.
 
-# from the bundle directory:
-../vendor/bin/phpstan analyse --configuration=phpstan.dist.neon --memory-limit=512M
-../vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run
+```bash
+composer test              # all tests
+composer test-unit         # unit tests only
+composer test-integration  # integration tests only
+composer test-functional   # functional tests only
+composer cs-check          # PHP-CS-Fixer dry-run
+composer cs-fix            # PHP-CS-Fixer auto-fix
+composer phpstan           # PHPStan level 8
+composer ci                # cs-check + phpstan + test
 ```
+
+Run a single test file or method:
+
+```bash
+vendor/bin/phpunit tests/Unit/Diff/ChangeSetExtractorTest.php
+vendor/bin/phpunit --filter it_should_record_an_update_diff
+```
+
+Integration tests use **in-memory SQLite** — no Docker or database server required.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
+opening a pull request, and make sure `composer ci` is green locally.
 
 ## License
 
-MIT.
+This bundle is released under the [MIT License](LICENSE).
+
+---
+
+<sub>This README was generated with the help of [Claude](https://claude.com/claude-code).</sub>

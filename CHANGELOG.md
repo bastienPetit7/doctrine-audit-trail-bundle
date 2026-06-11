@@ -12,6 +12,8 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-11
+
 ### Security
 
 - **Secure-by-default field blacklist.** `ignored_fields` now defaults to a
@@ -107,5 +109,6 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.1.0...v0.2.0
 [0.1.0-beta]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/releases/tag/v0.1.0

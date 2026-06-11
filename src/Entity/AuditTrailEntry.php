@@ -46,6 +46,8 @@ class AuditTrailEntry
         private readonly ?string $actorLabel,
         #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
         private readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        #[ORM\Column(type: Types::STRING, length: 128, nullable: true)]
+        private readonly ?string $signature = null,
     ) {
     }
 
@@ -110,5 +112,14 @@ class AuditTrailEntry
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    /**
+     * HMAC tamper-evidence seal, or null when integrity sealing was disabled at
+     * write time.
+     */
+    public function getSignature(): ?string
+    {
+        return $this->signature;
     }
 }

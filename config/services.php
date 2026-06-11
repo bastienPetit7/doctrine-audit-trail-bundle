@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
+use Metadev\DoctrineAuditTrailBundle\Command\VerifyAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
 use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
@@ -56,7 +58,8 @@ return static function (ContainerConfigurator $container): void {
         ->autoconfigure(false)
         ->tag('doctrine_audit_trail.value_formatter', ['priority' => -1000]);
 
-    $services->set(AuditTrailEntryFactory::class);
+    $services->set(AuditTrailEntryFactory::class)
+        ->args([service(SignatureProviderInterface::class)->nullOnInvalid()]);
 
     $services->set(DoctrineAuditPersister::class)
         ->args([service('doctrine.orm.audit_entity_manager')]);
@@ -71,4 +74,10 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(AuditTableNameListener::class)
         ->args([param('doctrine_audit_trail.storage.table_name')]);
+
+    $services->set(VerifyAuditTrailCommand::class)
+        ->args([
+            service(AuditTrailEntryRepository::class),
+            service(SignatureProviderInterface::class)->nullOnInvalid(),
+        ]);
 };

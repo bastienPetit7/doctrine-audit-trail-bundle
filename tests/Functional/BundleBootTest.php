@@ -7,13 +7,19 @@ namespace Metadev\DoctrineAuditTrailBundle\Tests\Functional;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Tools\SchemaTool;
+use Metadev\DoctrineAuditTrailBundle\Command\VerifyAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\DoctrineAuditTrailBundle;
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
 use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
 use Metadev\DoctrineAuditTrailBundle\Tests\Functional\Resources\StaticUserResolver;
+use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
 use Nyholm\BundleTest\TestKernel;
@@ -21,6 +27,8 @@ use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -36,6 +44,7 @@ final class BundleBootTest extends KernelTestCase
     private const CUSTOM_CONFIG = __DIR__.'/Resources/config/audit_custom.yaml';
     private const DISABLED_CONFIG = __DIR__.'/Resources/config/audit_disabled.yaml';
     private const CUSTOM_RESOLVER_CONFIG = __DIR__.'/Resources/config/audit_with_custom_resolver.yaml';
+    private const INTEGRITY_CONFIG = __DIR__.'/Resources/config/audit_integrity.yaml';
 
     private mixed $errorHandlerSnapshot = null;
     private mixed $exceptionHandlerSnapshot = null;
@@ -244,5 +253,79 @@ final class BundleBootTest extends KernelTestCase
         // Behavioural check: the constructor-bound flag is what shouldHandle() reads.
         $enabledProperty = (new \ReflectionObject($listener))->getProperty('enabled');
         self::assertFalse($enabledProperty->getValue($listener));
+    }
+
+    #[Test]
+    public function it_should_verify_a_sealed_trail_as_intact_end_to_end(): void
+    {
+        $this->bootIntegrityKernelWithSchema();
+        $this->persistSealedEntry();
+
+        $command = self::getContainer()->get(VerifyAuditTrailCommand::class);
+        self::assertInstanceOf(VerifyAuditTrailCommand::class, $command);
+
+        $tester = new CommandTester($command);
+        $exit = $tester->execute([]);
+
+        self::assertSame(Command::SUCCESS, $exit);
+        self::assertStringContainsString('integrity verified', $tester->getDisplay());
+    }
+
+    #[Test]
+    public function it_should_exit_with_failure_when_a_sealed_entry_is_tampered_end_to_end(): void
+    {
+        $this->bootIntegrityKernelWithSchema();
+        $entry = $this->persistSealedEntry();
+
+        /** @var EntityManagerInterface $auditEm */
+        $auditEm = self::getContainer()->get('doctrine.orm.audit_entity_manager');
+        $auditEm->getConnection()->executeStatement(
+            'UPDATE audit_trail SET diff = :diff WHERE id = :id',
+            ['diff' => json_encode(['before' => [], 'after' => ['title' => 'HACKED']], \JSON_THROW_ON_ERROR), 'id' => $entry->getId()],
+        );
+        // Drop the identity map so the command re-hydrates the tampered row from
+        // the database, as a fresh process would.
+        $auditEm->clear();
+
+        $command = self::getContainer()->get(VerifyAuditTrailCommand::class);
+        self::assertInstanceOf(VerifyAuditTrailCommand::class, $command);
+
+        $tester = new CommandTester($command);
+        $exit = $tester->execute([]);
+
+        self::assertSame(Command::FAILURE, $exit);
+        self::assertStringContainsString('Tamper detected', $tester->getDisplay());
+    }
+
+    private function bootIntegrityKernelWithSchema(): void
+    {
+        $this->bootWithAuditConfig(self::INTEGRITY_CONFIG);
+
+        /** @var EntityManagerInterface $auditEm */
+        $auditEm = self::getContainer()->get('doctrine.orm.audit_entity_manager');
+        (new SchemaTool($auditEm))->createSchema([$auditEm->getClassMetadata(AuditTrailEntry::class)]);
+    }
+
+    private function persistSealedEntry(): AuditTrailEntry
+    {
+        $container = self::getContainer();
+
+        /** @var AuditTrailEntryFactory $factory */
+        $factory = $container->get(AuditTrailEntryFactory::class);
+        /** @var EntityManagerInterface $auditEm */
+        $auditEm = $container->get('doctrine.orm.audit_entity_manager');
+
+        $entry = $factory->create(
+            new AuditedDummy(),
+            AuditAction::Update,
+            ['before' => ['title' => 'a'], 'after' => ['title' => 'b']],
+            new AuditActor(label: 'jane', userIdentifier: 'jane'),
+            ['id' => 1],
+        );
+
+        $auditEm->persist($entry);
+        $auditEm->flush();
+
+        return $entry;
     }
 }

@@ -6,9 +6,12 @@ namespace Metadev\DoctrineAuditTrailBundle;
 
 use Metadev\DoctrineAuditTrailBundle\DependencyInjection\Compiler\AuditFormatterPass;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
+use Metadev\DoctrineAuditTrailBundle\Integrity\HmacSignatureProvider;
+use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
@@ -68,6 +71,24 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                         ->end()
                     ->end()
                 ->end()
+                ->arrayNode('integrity')
+                    ->info('Opt-in HMAC tamper-evidence seal written on each audit row.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')
+                            ->info('When true, every audit row is sealed with an HMAC signature.')
+                            ->defaultFalse()
+                        ->end()
+                        ->scalarNode('secret')
+                            ->info('Secret used by the default HMAC provider (use an env var). Required when enabled without a custom secret_provider.')
+                            ->defaultNull()
+                        ->end()
+                        ->scalarNode('secret_provider')
+                            ->info('Custom SignatureProviderInterface service id (e.g. a KMS/Vault-backed provider).')
+                            ->defaultNull()
+                        ->end()
+                    ->end()
+                ->end()
             ->end();
     }
 
@@ -94,6 +115,35 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
         if (null !== ($resolverId = $config['actor']['user_resolver'] ?? null)) {
             $container->services()->alias(AuditUserResolverInterface::class, $resolverId);
         }
+
+        $this->configureIntegrity($config['integrity'] ?? [], $container);
+    }
+
+    /**
+     * @param array<string, mixed> $integrity
+     */
+    private function configureIntegrity(array $integrity, ContainerConfigurator $container): void
+    {
+        if (true !== ($integrity['enabled'] ?? false)) {
+            return;
+        }
+
+        $providerId = $integrity['secret_provider'] ?? null;
+        if (null !== $providerId) {
+            $container->services()->alias(SignatureProviderInterface::class, $providerId);
+
+            return;
+        }
+
+        $secret = $integrity['secret'] ?? null;
+        if (null === $secret || '' === $secret) {
+            throw new InvalidConfigurationException('doctrine_audit_trail.integrity: "secret" is required when integrity is enabled and no "secret_provider" is configured.');
+        }
+
+        $container->services()
+            ->set(HmacSignatureProvider::class)
+            ->args([$secret]);
+        $container->services()->alias(SignatureProviderInterface::class, HmacSignatureProvider::class);
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

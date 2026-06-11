@@ -38,4 +38,18 @@ final class AuditTrailEntryRepository extends ServiceEntityRepository
             $limit,
         );
     }
+
+    /**
+     * Streams every entry in insertion order, one at a time, so integrity
+     * verification stays memory-bounded on large tables.
+     *
+     * @return iterable<AuditTrailEntry>
+     */
+    public function streamAll(): iterable
+    {
+        return $this->createQueryBuilder('e')
+            ->orderBy('e.id', 'ASC')
+            ->getQuery()
+            ->toIterable();
+    }
 }

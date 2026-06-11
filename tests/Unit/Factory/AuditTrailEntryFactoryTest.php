@@ -6,6 +6,8 @@ namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Factory;
 
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Integrity\AuditEntrySignature;
+use Metadev\DoctrineAuditTrailBundle\Integrity\HmacSignatureProvider;
 use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
 use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
 use PHPUnit\Framework\Attributes\Test;
@@ -57,6 +59,40 @@ final class AuditTrailEntryFactoryTest extends TestCase
         );
 
         self::assertSame('Dummy', $log->getEntityLabel());
+    }
+
+    #[Test]
+    public function it_should_leave_the_signature_null_when_no_provider_is_configured(): void
+    {
+        $log = (new AuditTrailEntryFactory())->create(
+            new AuditedDummy(),
+            AuditAction::Create,
+            ['before' => [], 'after' => []],
+            new AuditActor(label: 'cli'),
+            ['id' => 1],
+        );
+
+        self::assertNull($log->getSignature());
+    }
+
+    #[Test]
+    public function it_should_seal_the_entry_with_a_verifiable_signature_when_a_provider_is_configured(): void
+    {
+        $provider = new HmacSignatureProvider('top-secret');
+
+        $log = (new AuditTrailEntryFactory($provider))->create(
+            new AuditedDummy(),
+            AuditAction::Update,
+            ['before' => ['title' => 'a'], 'after' => ['title' => 'b']],
+            new AuditActor(label: 'jane', userIdentifier: 'jane'),
+            ['id' => 7],
+        );
+
+        self::assertNotNull($log->getSignature());
+        self::assertSame(
+            $provider->sign(AuditEntrySignature::payloadFor($log)),
+            $log->getSignature(),
+        );
     }
 
     #[Test]

@@ -100,6 +100,15 @@ When integrating this bundle, we recommend:
   global `ignored_fields` list (merged with the blacklist, not replacing it).
 - Restrict read access to the `audit_trail_entry` table — audit data is
   often more sensitive than the source data.
+- Make the audit table **append-only**: grant only `INSERT` + `SELECT`, and
+  `REVOKE UPDATE, DELETE, TRUNCATE`. Add a `BEFORE UPDATE OR DELETE` trigger
+  that raises an exception. Ready-to-use DDL is provided in
+  `docs/hardening.sql`. This is tamper *prevention*.
+- For tamper *evidence* (detection of content rewrite or backdating that
+  survives a privileged DBA or a restored backup), enable the optional HMAC
+  seal via `doctrine_audit_trail.integrity` and verify it with `audit:verify`.
+  Note the seal is per-row: it does not, on its own, detect deletion of a whole
+  row — that is what the append-only grants above prevent.
 - Configure a retention policy aligned with your GDPR / legal
   requirements; the bundle does not purge entries automatically.
 - Ensure the `audit` entity manager uses a connection with the minimum

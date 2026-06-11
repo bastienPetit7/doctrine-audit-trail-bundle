@@ -21,6 +21,10 @@ here with a migration note.
   **merged on top** of this blacklist rather than replacing it, removing the
   silent PII/secret leak that occurred when a sensitive property was added later
   without updating the audit configuration.
+- **Tamper-evidence hardening.** `docs/hardening.sql` ships ready-to-use DDL
+  (least-privilege grants + append-only `BEFORE UPDATE/DELETE` triggers for
+  PostgreSQL and MySQL); the README hoists the `INSERT`+`SELECT`-only requirement
+  to a production prerequisite. This is the primary tamper *prevention* control.
 
 ### Added
 
@@ -28,12 +32,31 @@ here with a migration note.
   field that the built-in blacklist would otherwise exclude (e.g. auditing
   `refreshToken` to detect token replay). A property-level `#[AuditIgnore]`
   still takes precedence over this list.
+- Immutable `AuditActor::withIpAddress()`, `withUserIdentifier()` and
+  `withUserAgent()` copy helpers, easing GDPR anonymisation/pseudonymisation from
+  a decorating `AuditUserResolverInterface` (see README → Anonymising actor PII).
+- **Optional cryptographic HMAC seal** (`doctrine_audit_trail.integrity`, disabled
+  by default). When enabled, every audit row is sealed with
+  `HMAC-SHA256(secret, canonical_payload)` stored in a new nullable `signature`
+  column, providing portable tamper *evidence* (content rewrite, backdating)
+  independent of database features. Secret material stays outside the database via
+  a pluggable `SignatureProviderInterface` (default `HmacSignatureProvider`,
+  KMS/Vault-friendly). New `audit:verify` console command re-checks the whole
+  table and exits non-zero on any mismatch. The seal is per-row by design (no
+  hash chain → no global write serialisation); whole-row deletion is covered by
+  the append-only DB grants above.
+- New `require` on `symfony/console` (for `audit:verify`); `doctrine/migrations`
+  added to `suggest` to version the new `signature` column in production.
 
 ### Changed
 
 - **BC (minor):** a field previously audited and named like a blacklisted
   default (e.g. `token`, `secret`) is no longer recorded unless added to
   `force_audit_fields`. Review the blacklist above and opt back in if needed.
+- **Schema:** `AuditTrailEntry` gains a nullable `signature` column. It is
+  backward compatible (nullable, populated only when integrity is enabled), but
+  existing deployments must apply the schema change (`doctrine:schema:update
+  --em=audit` or a migration).
 
 ## [0.1.0-beta] - 2026-06-09
 

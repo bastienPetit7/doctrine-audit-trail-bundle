@@ -1,0 +1,4 @@
+doctrine_audit_trail:
+    integrity:
+        enabled: true
+        secret: functional-test-secret

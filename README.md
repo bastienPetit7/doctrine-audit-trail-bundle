@@ -113,6 +113,19 @@ php bin/console doctrine:schema:update --em=audit --force   # demo
 # in production: generate a dedicated migration instead
 ```
 
+### Tamper-evidence & hardening
+
+> **Production prerequisite.** The bundle only ever needs **`INSERT`** and
+> **`SELECT`** on the audit table. Grant nothing more, and physically reject
+> `UPDATE` / `DELETE` / `TRUNCATE` at the database level — audit data is more
+> sensitive than the source data, and an append-only store is the strongest
+> tamper *prevention* control.
+
+Ship-ready DDL (least-privilege grants + append-only triggers for PostgreSQL and
+MySQL) is provided in [`docs/hardening.sql`](docs/hardening.sql). For tamper
+*evidence* that survives even a privileged DBA or a restored backup, enable the
+optional [cryptographic HMAC seal](#cryptographic-seal-hmac).
+
 ## Configuration
 
 ```yaml
@@ -263,6 +276,48 @@ $this->contextHolder->setActor(new AuditActor(label: 'batch-nightly'));
 // ... run the batch ...
 $this->contextHolder->reset();
 ```
+
+### Cryptographic seal (HMAC)
+
+For tamper *evidence* — detecting that a row's content was rewritten or its
+timestamp backdated, even by someone who bypassed the [append-only DB
+grants](#tamper-evidence--hardening) — enable the optional per-row HMAC seal:
+
+```yaml
+# config/packages/doctrine_audit_trail.yaml
+doctrine_audit_trail:
+    integrity:
+        enabled: true
+        secret: '%env(AUDIT_HMAC_SECRET)%'   # keep it OUT of the audit database
+```
+
+Every audit row is then sealed with `HMAC-SHA256(secret, canonical_payload)` in a
+nullable `signature` column. Verify the whole table at any time:
+
+```bash
+php bin/console audit:verify   # exit 0 if intact, non-zero + the offending ids if tampered
+```
+
+Run it from CI, a cron, or after restoring a backup. Because the secret lives
+outside the database, an attacker who can only write to the audit table cannot
+forge a valid signature.
+
+**Plug a KMS/Vault-backed secret** by implementing `SignatureProviderInterface`
+and pointing the config at it:
+
+```yaml
+doctrine_audit_trail:
+    integrity:
+        enabled: true
+        secret_provider: App\Audit\KmsSignatureProvider
+```
+
+> **Scope.** The seal is computed **per row**: it proves a row was not altered,
+> but on its own it does not detect the deletion of a whole row (there is no
+> chaining — a deliberate choice to avoid serialising every audit write). Pair it
+> with the append-only DB grants in [`docs/hardening.sql`](docs/hardening.sql),
+> which prevent deletion at the source. Existing rows written before enabling the
+> seal verify as *unsigned*, not *tampered*.
 
 ## Quality & tests
 

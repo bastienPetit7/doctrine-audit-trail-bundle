@@ -11,6 +11,8 @@ use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListen
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\DoctrineAuditTrailBundle;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
+use Metadev\DoctrineAuditTrailBundle\Integrity\HmacSignatureProvider;
+use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
 use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
@@ -167,6 +169,47 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
             'doctrine_audit_trail.value_formatter',
             ['priority' => -1000],
         );
+    }
+
+    #[Test]
+    public function it_should_not_register_a_signature_provider_when_integrity_is_disabled(): void
+    {
+        $this->load();
+
+        self::assertFalse($this->container->hasAlias(SignatureProviderInterface::class));
+        self::assertFalse($this->container->hasDefinition(HmacSignatureProvider::class));
+    }
+
+    #[Test]
+    public function it_should_register_the_default_hmac_provider_when_integrity_is_enabled(): void
+    {
+        $this->load([
+            'integrity' => ['enabled' => true, 'secret' => 's3cr3t'],
+        ]);
+
+        $this->assertContainerBuilderHasService(HmacSignatureProvider::class);
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(HmacSignatureProvider::class, 0, 's3cr3t');
+        $this->assertContainerBuilderHasAlias(SignatureProviderInterface::class, HmacSignatureProvider::class);
+    }
+
+    #[Test]
+    public function it_should_alias_a_custom_signature_provider_when_one_is_configured(): void
+    {
+        $this->setDefinition('app.kms_signature_provider', new Definition(\stdClass::class));
+
+        $this->load([
+            'integrity' => ['enabled' => true, 'secret_provider' => 'app.kms_signature_provider'],
+        ]);
+
+        $this->assertContainerBuilderHasAlias(SignatureProviderInterface::class, 'app.kms_signature_provider');
+    }
+
+    #[Test]
+    public function it_should_throw_when_integrity_is_enabled_without_a_secret(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        $this->load(['integrity' => ['enabled' => true]]);
     }
 
     #[Test]

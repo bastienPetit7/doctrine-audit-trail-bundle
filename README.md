@@ -1,10 +1,10 @@
 # DoctrineAuditTrailBundle
 
 [![CI](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/actions/workflows/ci.yml)
-[![Latest Stable Version](https://img.shields.io/packagist/v/metadev/doctrine-audit-trail-bundle.svg?label=stable)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
-[![Total Downloads](https://img.shields.io/packagist/dt/metadev/doctrine-audit-trail-bundle.svg)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
-[![License](https://img.shields.io/packagist/l/metadev/doctrine-audit-trail-bundle.svg)](LICENSE)
-[![PHP Version](https://img.shields.io/packagist/php-v/metadev/doctrine-audit-trail-bundle.svg?logo=php&logoColor=white)](https://www.php.net/)
+[![Latest Stable Version](https://img.shields.io/packagist/v/metadev/doctrine-audit-trail-bundle.svg?label=stable&cacheSeconds=300)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
+[![Total Downloads](https://img.shields.io/packagist/dt/metadev/doctrine-audit-trail-bundle.svg?cacheSeconds=300)](https://packagist.org/packages/metadev/doctrine-audit-trail-bundle)
+[![License](https://img.shields.io/github/license/bastienPetit7/doctrine-audit-trail-bundle.svg?cacheSeconds=300)](LICENSE)
+[![PHP Version](https://img.shields.io/packagist/php-v/metadev/doctrine-audit-trail-bundle.svg?logo=php&logoColor=white&cacheSeconds=300)](https://www.php.net/)
 [![Symfony Version](https://img.shields.io/badge/symfony-%5E6.4%20%7C%7C%20%5E7.0%20%7C%7C%20%5E8.0-black?logo=symfony)](https://symfony.com/)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](phpstan.dist.neon)
 [![Code Style: PHP-CS-Fixer](https://img.shields.io/badge/code%20style-PHP--CS--Fixer-blue.svg)](.php-cs-fixer.dist.php)

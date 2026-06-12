@@ -1,6 +1,6 @@
 {
     "name": "metadev/doctrine-audit-trail-bundle",
-    "description": "Doctrine audit trail bundle for Symfony: tracks entity mutations with user attribution, IP, and JSON diffs — GDPR-ready and built for production.",
+    "description": "Opt-in Doctrine audit trail for Symfony: opt-in JSON diffs, actor attribution, sync/async persistence, secure-by-default secret blacklist and optional HMAC tamper-evidence seal.",
     "type": "symfony-bundle",
     "license": "MIT",
     "keywords": ["symfony", "symfony-bundle", "doctrine", "audit", "audit-trail", "audit-log", "gdpr", "history", "logging"],

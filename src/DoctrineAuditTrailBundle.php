@@ -8,7 +8,11 @@ use Metadev\DoctrineAuditTrailBundle\DependencyInjection\Compiler\AuditFormatter
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Integrity\HmacSignatureProvider;
 use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
+use Metadev\DoctrineAuditTrailBundle\Messenger\PersistAuditTrailEntriesHandler;
+use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Persister\MessengerAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Persister\SoftFailAuditPersister;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -16,6 +20,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Symfony\Component\Messenger\MessageBusInterface;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 final class DoctrineAuditTrailBundle extends AbstractBundle
 {
@@ -71,6 +78,30 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                         ->end()
                     ->end()
                 ->end()
+                ->arrayNode('persistence')
+                    ->info('How audit entries reach the store. See the "Consistency model" section of the README.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->enumNode('mode')
+                            ->info('sync: write in the request (default). async: offload to Symfony Messenger.')
+                            ->values(['sync', 'async'])
+                            ->defaultValue('sync')
+                        ->end()
+                        ->booleanNode('soft_fail')
+                            ->info('When true, a failing audit write is caught and logged (PSR logger) instead of breaking the application transaction.')
+                            ->defaultFalse()
+                        ->end()
+                        ->scalarNode('message_bus')
+                            ->info('Message bus service id used in async mode.')
+                            ->defaultValue('messenger.bus.default')
+                        ->end()
+                        ->integerNode('batch_size')
+                            ->info('Async mode: max entries per Messenger message. Keeps payloads under transport limits (AMQP frame_max, Redis stream entry size).')
+                            ->min(1)
+                            ->defaultValue(MessengerAuditPersister::DEFAULT_BATCH_SIZE)
+                        ->end()
+                    ->end()
+                ->end()
                 ->arrayNode('integrity')
                     ->info('Opt-in HMAC tamper-evidence seal written on each audit row.')
                     ->addDefaultsIfNotSet()
@@ -116,7 +147,45 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
             $container->services()->alias(AuditUserResolverInterface::class, $resolverId);
         }
 
+        $this->configurePersistence($config['persistence'] ?? [], $container);
         $this->configureIntegrity($config['integrity'] ?? [], $container);
+    }
+
+    /**
+     * @param array<string, mixed> $persistence
+     */
+    private function configurePersistence(array $persistence, ContainerConfigurator $container): void
+    {
+        $services = $container->services();
+        $innerId = DoctrineAuditPersister::class;
+
+        if ('async' === ($persistence['mode'] ?? 'sync')) {
+            if (!interface_exists(MessageBusInterface::class)) {
+                throw new InvalidConfigurationException('doctrine_audit_trail.persistence: mode "async" requires symfony/messenger. Run "composer require symfony/messenger".');
+            }
+
+            $services->set(MessengerAuditPersister::class)
+                ->args([
+                    service($persistence['message_bus'] ?? 'messenger.bus.default'),
+                    $persistence['batch_size'] ?? MessengerAuditPersister::DEFAULT_BATCH_SIZE,
+                ]);
+
+            $services->set(PersistAuditTrailEntriesHandler::class)
+                ->autoconfigure(false)
+                ->args([service(DoctrineAuditPersister::class)])
+                ->tag('messenger.message_handler');
+
+            $innerId = MessengerAuditPersister::class;
+        }
+
+        if (true === ($persistence['soft_fail'] ?? false)) {
+            $services->set(SoftFailAuditPersister::class)
+                ->args([service($innerId), service('logger')->nullOnInvalid()]);
+
+            $innerId = SoftFailAuditPersister::class;
+        }
+
+        $services->alias(AuditPersisterInterface::class, $innerId);
     }
 
     /**

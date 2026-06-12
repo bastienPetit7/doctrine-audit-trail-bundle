@@ -150,7 +150,58 @@ doctrine_audit_trail:
     actor:
         fallback_label: cli             # label outside an HTTP request
         user_resolver: ~                # custom resolver service id (optional)
+
+    persistence:
+        mode: sync                      # sync (default) | async
+        soft_fail: false                # catch + log write failures instead of breaking the app
+        message_bus: messenger.bus.default   # used in async mode
+        batch_size: 100                 # async mode: max entries per Messenger message
 ```
+
+## Consistency model
+
+Audit entries are written through a **dedicated entity manager** with its own
+connection. This keeps your application's unit of work untouched, but it means the
+audit write is **not** part of your business transaction. Two trade-offs follow,
+and you choose how to handle them via `persistence`:
+
+| Mode | Latency / large-flush cost | Audit write failure | Atomicity with business data |
+|------|----------------------------|---------------------|------------------------------|
+| `sync` (default) | paid in the request | propagates (see `soft_fail`) | ❌ written after the business commit |
+| `async` | offloaded to Messenger | retried by the transport (needs a DLQ) | ❌ eventual, may be lost without a DLQ |
+
+- **`soft_fail: true`** — a failing audit write is caught and logged via the PSR
+  logger instead of surfacing to the caller. Availability over durability: an entry
+  may be dropped (logged as an error), but the request keeps working. The log
+  context includes `dropped_entries` and `total_entries` so operators can quantify
+  the loss without reproducing the failure. In `async` mode, `soft_fail` only
+  catches *dispatch* failures (broker unreachable, transport rejected the
+  envelope). Once a message has been accepted by the broker, worker failures are
+  handled by Symfony Messenger's retry/DLQ — they are intentionally **not**
+  soft-failed, because doing so would ACK a failed message and silently drop
+  audit data instead of letting the transport retry it.
+- **`mode: async`** — requires `symfony/messenger`. Audit entries are dispatched to
+  a transport and persisted by a worker, removing the write from the request hot
+  path (latency, large unit-of-work pressure). `createdAt` and the integrity
+  signature are frozen at capture time, so relaying later does not alter the entry.
+  Consistency is eventual; configure a retry/DLQ on the transport.
+  Entries are split into chunks of `batch_size` (default `100`) so a bulk flush
+  never produces a single oversized message — useful because AMQP enforces a low
+  `frame_max` (~128KB by default) and Redis Streams cap entry sizes. Each chunk is
+  an independent message, so the audit batch is **not** atomic across chunks: one
+  chunk may succeed while another retries or lands in the DLQ. Tune `batch_size`
+  to keep the serialized payload comfortably below your transport's limit. When a
+  dispatch fails mid-flush, the persister keeps attempting the remaining chunks
+  (so a transient broker hiccup on chunk 1 does not silently take down chunks 2+);
+  the aggregated failure is then either raised or — with `soft_fail: true` —
+  logged as a single error carrying the exact `dropped_entries` count.
+  Messages are stamped with `DispatchAfterCurrentBusStamp`, so when the audit
+  triggers inside a Messenger handler the entries are only released if the parent
+  handler completes successfully.
+
+> **Strict atomicity** (audit committed *if and only if* the business transaction
+> commits) requires a transactional outbox and is not yet provided. Track it in the
+> roadmap if you target regulated workloads.
 
 ## Marking entities
 

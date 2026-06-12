@@ -38,11 +38,13 @@
         "phpunit/phpunit": "^11.0",
         "symfony/framework-bundle": "^6.4|^7.0|^8.0",
         "symfony/http-foundation": "^6.4|^7.0|^8.0",
+        "symfony/messenger": "^6.4|^7.0|^8.0",
         "symfony/security-core": "^6.4|^7.0|^8.0"
     },
     "suggest": {
         "symfony/security-core": "To attribute audit entries to the authenticated user",
         "symfony/http-foundation": "To capture the client IP address and user agent",
+        "symfony/messenger": "To offload audit persistence with persistence.mode: async",
         "doctrine/migrations": "To version the audit schema, including the optional integrity 'signature' column"
     },
     "autoload": {

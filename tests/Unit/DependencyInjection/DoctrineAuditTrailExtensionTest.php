@@ -13,9 +13,12 @@ use Metadev\DoctrineAuditTrailBundle\DoctrineAuditTrailBundle;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
 use Metadev\DoctrineAuditTrailBundle\Integrity\HmacSignatureProvider;
 use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
+use Metadev\DoctrineAuditTrailBundle\Messenger\PersistAuditTrailEntriesHandler;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
 use Metadev\DoctrineAuditTrailBundle\Persister\AuditPersisterInterface;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Persister\MessengerAuditPersister;
+use Metadev\DoctrineAuditTrailBundle\Persister\SoftFailAuditPersister;
 use Metadev\DoctrineAuditTrailBundle\User\AuditContextHolder;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
@@ -210,6 +213,99 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
         $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
 
         $this->load(['integrity' => ['enabled' => true]]);
+    }
+
+    #[Test]
+    public function it_should_keep_the_doctrine_persister_alias_in_sync_mode(): void
+    {
+        $this->load(['persistence' => ['mode' => 'sync']]);
+
+        $this->assertContainerBuilderHasAlias(AuditPersisterInterface::class, DoctrineAuditPersister::class);
+        self::assertFalse($this->container->hasDefinition(MessengerAuditPersister::class));
+        self::assertFalse($this->container->hasDefinition(SoftFailAuditPersister::class));
+    }
+
+    #[Test]
+    public function it_should_alias_the_messenger_persister_in_async_mode(): void
+    {
+        $this->load(['persistence' => ['mode' => 'async']]);
+
+        $this->assertContainerBuilderHasAlias(AuditPersisterInterface::class, MessengerAuditPersister::class);
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            MessengerAuditPersister::class,
+            0,
+            new Reference('messenger.bus.default'),
+        );
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            MessengerAuditPersister::class,
+            1,
+            MessengerAuditPersister::DEFAULT_BATCH_SIZE,
+        );
+        $this->assertContainerBuilderHasServiceDefinitionWithTag(
+            PersistAuditTrailEntriesHandler::class,
+            'messenger.message_handler',
+        );
+
+        $definition = $this->container->findDefinition(PersistAuditTrailEntriesHandler::class);
+        self::assertCount(1, $definition->getTag('messenger.message_handler'));
+    }
+
+    #[Test]
+    public function it_should_use_a_custom_message_bus_in_async_mode(): void
+    {
+        $this->load(['persistence' => ['mode' => 'async', 'message_bus' => 'app.audit_bus']]);
+
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            MessengerAuditPersister::class,
+            0,
+            new Reference('app.audit_bus'),
+        );
+    }
+
+    #[Test]
+    public function it_should_apply_a_custom_batch_size_to_the_messenger_persister(): void
+    {
+        $this->load(['persistence' => ['mode' => 'async', 'batch_size' => 25]]);
+
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            MessengerAuditPersister::class,
+            1,
+            25,
+        );
+    }
+
+    #[Test]
+    public function it_should_reject_a_non_positive_batch_size(): void
+    {
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+
+        $this->load(['persistence' => ['mode' => 'async', 'batch_size' => 0]]);
+    }
+
+    #[Test]
+    public function it_should_wrap_the_sync_persister_with_soft_fail_when_enabled(): void
+    {
+        $this->load(['persistence' => ['soft_fail' => true]]);
+
+        $this->assertContainerBuilderHasAlias(AuditPersisterInterface::class, SoftFailAuditPersister::class);
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            SoftFailAuditPersister::class,
+            0,
+            new Reference(DoctrineAuditPersister::class),
+        );
+    }
+
+    #[Test]
+    public function it_should_wrap_the_messenger_persister_with_soft_fail_when_both_are_enabled(): void
+    {
+        $this->load(['persistence' => ['mode' => 'async', 'soft_fail' => true]]);
+
+        $this->assertContainerBuilderHasAlias(AuditPersisterInterface::class, SoftFailAuditPersister::class);
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(
+            SoftFailAuditPersister::class,
+            0,
+            new Reference(MessengerAuditPersister::class),
+        );
     }
 
     #[Test]

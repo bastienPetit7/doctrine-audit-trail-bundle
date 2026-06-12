@@ -12,6 +12,63 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-12
+
+### Added
+
+- **Asynchronous persistence mode** (`doctrine_audit_trail.persistence.mode: async`).
+  Audit entries are dispatched to a Symfony Messenger transport and persisted by a
+  worker, removing the write from the request hot path (latency, large unit-of-work
+  pressure). `createdAt` and the integrity signature are frozen at capture time so
+  relaying later does not alter the entry. Consistency is eventual; configure a
+  retry / DLQ on the transport. Requires `symfony/messenger`.
+- **Batching of async dispatch** via the new `persistence.batch_size` option
+  (default `100`). Entries are split into chunks before dispatch so a bulk flush
+  never produces a single oversized message — useful given AMQP's low `frame_max`
+  (~128 KB) and Redis Streams' entry size cap. Each chunk is an independent
+  message: the audit batch is **not** atomic across chunks (one chunk may succeed
+  while another retries or lands in the DLQ). When a dispatch fails mid-flush, the
+  persister keeps attempting the remaining chunks so a transient broker hiccup on
+  chunk 1 does not silently take down chunks 2+; the aggregated failure is raised
+  via `AuditDispatchFailedException` (or logged once when `soft_fail: true`).
+- **Soft-fail mode** (`doctrine_audit_trail.persistence.soft_fail: true`). A
+  failing audit write is caught and logged via the PSR logger instead of surfacing
+  to the caller — availability over durability, an entry may be dropped (logged as
+  an error) but the request keeps working. The log context exposes
+  `dropped_entries` and `total_entries` so operators can quantify the loss without
+  reproducing the failure. In async mode `soft_fail` only catches *dispatch*
+  failures (broker unreachable, transport rejected the envelope); worker failures
+  stay under Symfony Messenger's retry / DLQ semantics by design — soft-failing
+  them would ACK a failed message and silently drop audit data.
+- **`AuditDispatchFailedException`** carrying `failedEntries` / `totalEntries`,
+  raised when one or more chunks could not be dispatched in async mode.
+- **`PersistAuditTrailEntries` Messenger message + `PersistAuditTrailEntriesHandler`.**
+  The handler is hard-typed against `DoctrineAuditPersister` (not the interface)
+  on purpose: in async mode the interface alias resolves to
+  `MessengerAuditPersister`, which would make the worker re-dispatch the same
+  message and loop until the DLQ overflows; with `soft_fail: true` the interface
+  resolves to `SoftFailAuditPersister`, which would swallow worker exceptions and
+  ACK the message — defeating Messenger's retry / DLQ guarantees.
+- Messages are stamped with `DispatchAfterCurrentBusStamp` so when audit triggers
+  inside a Messenger handler, entries are only released if the parent handler
+  completes successfully.
+
+### Changed
+
+- **Schema:** no migration required. The new persistence pipeline is purely
+  application-side; the `AuditTrailEntry` table is unchanged from `0.2.0`.
+- **`symfony/messenger`** moved to `suggest` (`require-dev` for the test suite);
+  installing it is now required only when enabling `persistence.mode: async`.
+
+### Fixed
+
+- **CI matrix (`prefer-lowest`, PHP 8.2 + Symfony 6.4):** test spy logger in
+  `SoftFailAuditPersisterTest` no longer durcens the `LoggerInterface::log()`
+  signature with `string|\Stringable`, which violated LSP against the un-typed
+  parameters of `psr/log` v1 shipped under the lowest matrix cell. The spy now
+  matches the looser parent signature and stays compatible with `psr/log` 1.x,
+  2.x and 3.x.
+
 ## [0.2.0] - 2026-06-11
 
 ### Security
@@ -109,6 +166,7 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.1.0...v0.2.0
 [0.1.0-beta]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/releases/tag/v0.1.0

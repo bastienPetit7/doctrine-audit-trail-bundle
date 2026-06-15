@@ -11,7 +11,8 @@ use Metadev\DoctrineAuditTrailBundle\Repository\AuditTrailEntryRepository;
 
 #[ORM\Entity(repositoryClass: AuditTrailEntryRepository::class)]
 #[ORM\Table(name: 'audit_trail')]
-#[ORM\Index(name: 'idx_audit_trail_entity', fields: ['entityClass', 'entityId'])]
+#[ORM\Index(name: 'idx_audit_trail_entity', fields: ['entityClass', 'entityId', 'id'])]
+#[ORM\Index(name: 'idx_audit_trail_actor', fields: ['userIdentifier', 'id'])]
 #[ORM\Index(name: 'idx_audit_trail_created_at', fields: ['createdAt'])]
 class AuditTrailEntry
 {
@@ -40,7 +41,7 @@ class AuditTrailEntry
         private readonly ?string $userIdentifier,
         #[ORM\Column(type: Types::STRING, length: 45, nullable: true)]
         private readonly ?string $ipAddress,
-        #[ORM\Column(type: Types::TEXT, nullable: true)]
+        #[ORM\Column(type: Types::STRING, length: 512, nullable: true)]
         private readonly ?string $userAgent,
         #[ORM\Column(type: Types::STRING, length: 64, nullable: true)]
         private readonly ?string $actorLabel,

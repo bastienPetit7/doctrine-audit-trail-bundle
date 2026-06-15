@@ -11,6 +11,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 final class DefaultAuditUserResolver implements AuditUserResolverInterface
 {
+    private const USER_AGENT_MAX_LENGTH = 512;
+
     public function __construct(
         private readonly AuditContextHolder $contextHolder,
         private readonly ?TokenStorageInterface $tokenStorage = null,
@@ -62,6 +64,11 @@ final class DefaultAuditUserResolver implements AuditUserResolverInterface
 
     private function userAgentOf(?Request $request): ?string
     {
-        return $request?->headers->get('User-Agent');
+        $userAgent = $request?->headers->get('User-Agent');
+        if (null === $userAgent) {
+            return null;
+        }
+
+        return mb_substr($userAgent, 0, self::USER_AGENT_MAX_LENGTH);
     }
 }

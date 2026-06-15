@@ -11,6 +11,8 @@ use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 /** @extends ServiceEntityRepository<AuditTrailEntry> */
 final class AuditTrailEntryRepository extends ServiceEntityRepository
 {
+    public const MAX_PAGE_SIZE = 1000;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, AuditTrailEntry::class);
@@ -19,24 +21,39 @@ final class AuditTrailEntryRepository extends ServiceEntityRepository
     /**
      * @return AuditTrailEntry[]
      */
-    public function findByEntity(string $entityClass, int|string $entityId): array
+    public function findByEntity(string $entityClass, int|string $entityId, int $limit = 50, ?int $beforeId = null): array
     {
-        return $this->findBy(
-            ['entityClass' => $entityClass, 'entityId' => (string) $entityId],
-            ['createdAt' => 'DESC'],
-        );
+        $qb = $this->createQueryBuilder('e')
+            ->where('e.entityClass = :class')
+            ->andWhere('e.entityId = :id')
+            ->setParameter('class', $entityClass)
+            ->setParameter('id', (string) $entityId)
+            ->orderBy('e.id', 'DESC')
+            ->setMaxResults(self::cappedLimit($limit));
+
+        if (null !== $beforeId) {
+            $qb->andWhere('e.id < :beforeId')->setParameter('beforeId', $beforeId);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
      * @return AuditTrailEntry[]
      */
-    public function findByActor(string $userIdentifier, int $limit = 50): array
+    public function findByActor(string $userIdentifier, int $limit = 50, ?int $beforeId = null): array
     {
-        return $this->findBy(
-            ['userIdentifier' => $userIdentifier],
-            ['createdAt' => 'DESC'],
-            $limit,
-        );
+        $qb = $this->createQueryBuilder('e')
+            ->where('e.userIdentifier = :uid')
+            ->setParameter('uid', $userIdentifier)
+            ->orderBy('e.id', 'DESC')
+            ->setMaxResults(self::cappedLimit($limit));
+
+        if (null !== $beforeId) {
+            $qb->andWhere('e.id < :beforeId')->setParameter('beforeId', $beforeId);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
@@ -51,5 +68,14 @@ final class AuditTrailEntryRepository extends ServiceEntityRepository
             ->orderBy('e.id', 'ASC')
             ->getQuery()
             ->toIterable();
+    }
+
+    public static function cappedLimit(int $limit): int
+    {
+        if ($limit < 1) {
+            return 1;
+        }
+
+        return min($limit, self::MAX_PAGE_SIZE);
     }
 }

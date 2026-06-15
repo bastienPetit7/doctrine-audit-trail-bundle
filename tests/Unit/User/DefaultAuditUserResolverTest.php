@@ -72,6 +72,24 @@ final class DefaultAuditUserResolverTest extends TestCase
     }
 
     #[Test]
+    public function it_should_truncate_an_oversized_user_agent_to_512_chars(): void
+    {
+        $request = Request::create('/admin/post/new');
+        $request->headers->set('User-Agent', str_repeat('A', 5000));
+
+        $resolver = new DefaultAuditUserResolver(
+            new AuditContextHolder(),
+            new TokenStorage(),
+            $this->requestStackWith($request),
+        );
+
+        $actor = $resolver->resolve();
+
+        self::assertNotNull($actor->userAgent);
+        self::assertSame(512, mb_strlen($actor->userAgent));
+    }
+
+    #[Test]
     public function it_should_let_a_manual_override_take_precedence(): void
     {
         $tokenStorage = new TokenStorage();

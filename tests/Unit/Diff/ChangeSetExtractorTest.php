@@ -16,9 +16,9 @@ use PHPUnit\Framework\TestCase;
 
 final class ChangeSetExtractorTest extends TestCase
 {
-    private function extractor(): ChangeSetExtractor
+    private function extractor(int $maxSizeBytes = 65536): ChangeSetExtractor
     {
-        return new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()]));
+        return new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()]), $maxSizeBytes);
     }
 
     #[Test]
@@ -75,6 +75,48 @@ final class ChangeSetExtractorTest extends TestCase
         self::assertArrayHasKey('title', $diff['after']);
         self::assertArrayNotHasKey('apiKey', $diff['after']);
         self::assertArrayNotHasKey('apiKey', $diff['before']);
+    }
+
+    #[Test]
+    public function it_should_replace_an_oversized_diff_with_a_truncation_marker(): void
+    {
+        $changeSet = [
+            'payload' => ['', str_repeat('A', 2000)],
+        ];
+
+        $diff = $this->extractor(maxSizeBytes: 256)->extractChanges($changeSet, new AuditMetadata(auditable: true));
+
+        self::assertSame([], $diff['before']);
+        self::assertTrue($diff['after']['_truncated']);
+        self::assertSame('size_exceeded', $diff['after']['_reason']);
+        self::assertGreaterThan(256, $diff['after']['_originalSize']);
+    }
+
+    #[Test]
+    public function it_should_emit_a_marker_when_the_diff_cannot_be_encoded(): void
+    {
+        $changeSet = [
+            'ratio' => [1.0, \NAN],
+        ];
+
+        $diff = $this->extractor()->extractChanges($changeSet, new AuditMetadata(auditable: true));
+
+        self::assertSame([], $diff['before']);
+        self::assertTrue($diff['after']['_truncated']);
+        self::assertSame('encoding_failed', $diff['after']['_reason']);
+    }
+
+    #[Test]
+    public function it_should_not_apply_the_quota_when_disabled(): void
+    {
+        $changeSet = [
+            'payload' => ['', str_repeat('A', 2000)],
+        ];
+
+        $diff = $this->extractor(maxSizeBytes: ChangeSetExtractor::NO_SIZE_LIMIT)->extractChanges($changeSet, new AuditMetadata(auditable: true));
+
+        self::assertArrayHasKey('payload', $diff['after']);
+        self::assertArrayNotHasKey('_truncated', $diff['after']);
     }
 
     #[Test]

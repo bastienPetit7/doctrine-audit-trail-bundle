@@ -65,6 +65,16 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                     ->scalarPrototype()->end()
                     ->defaultValue([])
                 ->end()
+                ->arrayNode('diff')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('max_size_bytes')
+                            ->info('Hard cap on the JSON-encoded diff payload. Beyond this size the diff is replaced with a truncation marker, preventing a single mutation from bloating the audit table. Use 0 to disable the guard.')
+                            ->min(0)
+                            ->defaultValue(65536)
+                        ->end()
+                    ->end()
+                ->end()
                 ->arrayNode('actor')
                     ->addDefaultsIfNotSet()
                     ->children()
@@ -133,6 +143,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
         $builder->setParameter('doctrine_audit_trail.enabled', $config['enabled'] ?? true);
         $builder->setParameter('doctrine_audit_trail.ignored_fields', $config['ignored_fields'] ?? []);
         $builder->setParameter('doctrine_audit_trail.force_audit_fields', $config['force_audit_fields'] ?? []);
+        $builder->setParameter('doctrine_audit_trail.diff.max_size_bytes', $config['diff']['max_size_bytes'] ?? 65536);
         $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
 
         $tableName = $config['storage']['table_name'] ?? self::DEFAULT_TABLE_NAME;

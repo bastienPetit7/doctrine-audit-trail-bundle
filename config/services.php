@@ -52,7 +52,11 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(AuditUserResolverInterface::class, DefaultAuditUserResolver::class);
 
     $services->set(DiffFormatterRegistry::class);
-    $services->set(ChangeSetExtractor::class);
+    $services->set(ChangeSetExtractor::class)
+        ->args([
+            service(DiffFormatterRegistry::class),
+            param('doctrine_audit_trail.diff.max_size_bytes'),
+        ]);
 
     $services->set(ScalarValueFormatter::class)
         ->autoconfigure(false)

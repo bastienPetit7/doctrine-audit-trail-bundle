@@ -90,6 +90,7 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.enabled', true);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.ignored_fields', []);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.force_audit_fields', []);
+        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.diff.max_size_bytes', 65536);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.actor.fallback_label', 'cli');
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.storage.table_name', 'audit_trail');
     }
@@ -101,6 +102,7 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
             'enabled' => false,
             'ignored_fields' => ['ssn', 'iban'],
             'force_audit_fields' => ['refreshToken'],
+            'diff' => ['max_size_bytes' => 16384],
             'storage' => ['table_name' => 'custom_audit'],
             'actor' => ['fallback_label' => 'worker'],
         ]);
@@ -108,6 +110,7 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.enabled', false);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.ignored_fields', ['ssn', 'iban']);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.force_audit_fields', ['refreshToken']);
+        $this->assertContainerBuilderHasParameter('doctrine_audit_trail.diff.max_size_bytes', 16384);
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.actor.fallback_label', 'worker');
         $this->assertContainerBuilderHasParameter('doctrine_audit_trail.storage.table_name', 'custom_audit');
     }

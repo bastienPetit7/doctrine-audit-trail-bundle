@@ -9,8 +9,11 @@ use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
 
 final class ChangeSetExtractor
 {
+    public const NO_SIZE_LIMIT = 0;
+
     public function __construct(
         private readonly DiffFormatterRegistry $formatters,
+        private readonly int $maxSizeBytes = 65536,
     ) {
     }
 
@@ -38,7 +41,7 @@ final class ChangeSetExtractor
             $after[$field] = $this->formatters->format($new);
         }
 
-        return ['before' => $before, 'after' => $after];
+        return $this->enforceSizeQuota(['before' => $before, 'after' => $after]);
     }
 
     /**
@@ -58,6 +61,44 @@ final class ChangeSetExtractor
             $before[$field] = $this->formatters->format($value);
         }
 
-        return ['before' => $before, 'after' => []];
+        return $this->enforceSizeQuota(['before' => $before, 'after' => []]);
+    }
+
+    /**
+     * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
+     *
+     * @return array{before: array<string, mixed>, after: array<string, mixed>}
+     */
+    private function enforceSizeQuota(array $diff): array
+    {
+        if (self::NO_SIZE_LIMIT === $this->maxSizeBytes) {
+            return $diff;
+        }
+
+        try {
+            $encoded = json_encode($diff, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $this->truncationMarker('encoding_failed');
+        }
+
+        $size = \strlen($encoded);
+        if ($size <= $this->maxSizeBytes) {
+            return $diff;
+        }
+
+        return $this->truncationMarker('size_exceeded', $size);
+    }
+
+    /**
+     * @return array{before: array<string, mixed>, after: array<string, mixed>}
+     */
+    private function truncationMarker(string $reason, ?int $originalSize = null): array
+    {
+        $after = ['_truncated' => true, '_reason' => $reason];
+        if (null !== $originalSize) {
+            $after['_originalSize'] = $originalSize;
+        }
+
+        return ['before' => [], 'after' => $after];
     }
 }

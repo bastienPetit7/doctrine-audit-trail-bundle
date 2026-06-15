@@ -12,6 +12,46 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Added
+
+- **`diff.max_size_bytes` configuration** (default `65536`, set to `0` to
+  disable) — caps the JSON-encoded diff payload. Beyond the limit the diff is
+  replaced with `{_truncated: true, _reason: 'size_exceeded', _originalSize: N}`
+  in the `after` slot; when a value cannot be JSON-encoded at all (NAN/INF,
+  binary string) the marker uses `_reason: 'encoding_failed'`. Prevents a
+  single mutation on a large `TEXT`/`JSON` column from bloating the audit
+  table.
+- **Cursor pagination on the repository.** `findByEntity()` and `findByActor()`
+  now accept `int $limit = 50` and `?int $beforeId = null`, ordered by `id DESC`
+  for stable, cursor-based pagination under concurrent writes. A hard cap of
+  `AuditTrailEntryRepository::MAX_PAGE_SIZE` (1000) protects against accidental
+  unbounded reads.
+- **Indexes for common access patterns.** `idx_audit_trail_entity` extended to
+  `(entityClass, entityId, id)` and new `idx_audit_trail_actor` on
+  `(userIdentifier, id)` — covers the "history of entity X" and "actions of
+  user X" queries that previously required a sequential scan. The trailing `id`
+  matches the repository's `ORDER BY id DESC`, avoiding a filesort.
+
+### Changed
+
+- **BC (minor): `userAgent` column type.** Was `TEXT` (unbounded), now
+  `VARCHAR(512)`. `DefaultAuditUserResolver` truncates the `User-Agent` header
+  at the source. A hostile client could otherwise send a multi-megabyte header
+  and inflate the table indefinitely. Custom `AuditUserResolverInterface`
+  implementations are responsible for staying within the 512-character limit.
+- **BC (minor): `AuditTrailEntryRepository::findByEntity()` signature.** Added
+  optional `$limit` (default `50`) and `$beforeId` (default `null`). Default
+  behaviour now returns a paginated 50-row window ordered by `id DESC` instead
+  of the full history sorted by `createdAt DESC`. Callers needing the whole
+  history must loop with `$beforeId`. The unbounded behaviour was unsafe on
+  entities with thousands of mutations.
+- **Schema:** column type change on `user_agent` + two new indexes. Generate a
+  migration (`doctrine:migrations:diff --em=audit`) or run
+  `doctrine:schema:update --em=audit`. If existing rows have `user_agent`
+  values longer than 512 characters, truncate them before applying the ALTER:
+  `UPDATE audit_trail SET user_agent = LEFT(user_agent, 512) WHERE LENGTH(user_agent) > 512`
+  (MySQL strict mode rejects the type change otherwise).
+
 ## [0.3.0] - 2026-06-12
 
 ### Added

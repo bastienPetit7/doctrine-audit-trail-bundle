@@ -123,4 +123,24 @@ class AuditTrailEntry
     {
         return $this->signature;
     }
+
+    public function isMinimalDeleteSnapshot(): bool
+    {
+        if (AuditAction::Delete !== $this->action) {
+            return false;
+        }
+
+        return \array_key_exists('_snapshot_hash', $this->diff['before']);
+    }
+
+    public function getSnapshotHash(): ?string
+    {
+        if (!$this->isMinimalDeleteSnapshot()) {
+            return null;
+        }
+
+        $hash = $this->diff['before']['_snapshot_hash'] ?? null;
+
+        return \is_string($hash) ? $hash : null;
+    }
 }

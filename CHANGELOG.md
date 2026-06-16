@@ -12,8 +12,30 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Security
+
+- **DELETE snapshots default to minimal mode.** `diff.delete_snapshot_mode`
+  (default: `minimal`) stores only a SHA-256 fingerprint of the
+  non-blacklisted field state instead of field values in cleartext. Opt back in
+  with `diff.delete_snapshot_mode: full` for forensic needs. The hash is data
+  minimization, not encryption — sensitive fields must still be declared via
+  `#[AuditIgnore]` or `ignored_fields`.
+- **Extended built-in security blacklist** with banking and MFA field names
+  (`iban`, `bic`, `swift`, `pan`, `passwordHash`, `legacyPasswordHash`,
+  `mfaSecret`, `totpSecret`, `recoveryCode`, `cardNumber`, `cardCvv`,
+  `cardPin`, `panMasked`).
+
 ### Added
 
+- **`diff.delete_snapshot_mode` configuration** (`minimal` | `full`, default
+  `minimal`) — controls how DELETE diffs are stored. Minimal mode persists
+  `{_snapshot_hash: "…"}` under `diff.before`; full mode persists every
+  non-blacklisted field value.
+- **`AuditTrailEntry::isMinimalDeleteSnapshot()`** and
+  **`getSnapshotHash()`** — let consumers detect and read minimal DELETE rows
+  without probing the raw diff shape.
+- **`CanonicalJson` utility** — shared recursive key sorting for snapshot
+  hashes and HMAC payload canonicalization.
 - **`diff.max_size_bytes` configuration** (default `65536`, set to `0` to
   disable) — caps the JSON-encoded diff payload. Beyond the limit the diff is
   replaced with `{_truncated: true, _reason: 'size_exceeded', _originalSize: N}`
@@ -34,6 +56,10 @@ here with a migration note.
 
 ### Changed
 
+- **BC (minor): DELETE diff shape.** Rows created with the default
+  `delete_snapshot_mode: minimal` no longer expose field values under
+  `diff.before`. Use `AuditTrailEntry::isMinimalDeleteSnapshot()` to branch, or
+  set `diff.delete_snapshot_mode: full` to restore the previous behaviour.
 - **BC (minor): `userAgent` column type.** Was `TEXT` (unbounded), now
   `VARCHAR(512)`. `DefaultAuditUserResolver` truncates the `User-Agent` header
   at the source. A hostile client could otherwise send a multi-megabyte header

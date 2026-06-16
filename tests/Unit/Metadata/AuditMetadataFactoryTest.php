@@ -58,6 +58,18 @@ final class AuditMetadataFactoryTest extends TestCase
     }
 
     #[Test]
+    public function it_should_blacklist_banking_and_mfa_field_names_by_default(): void
+    {
+        $factory = new AuditMetadataFactory();
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        foreach (['iban', 'bic', 'swift', 'pan', 'panMasked', 'cardNumber', 'cardCvv', 'cardPin', 'cvv', 'passwordHash', 'legacyPasswordHash', 'mfaSecret', 'totpSecret', 'recoveryCode'] as $field) {
+            self::assertTrue($metadata->isFieldIgnored($field), \sprintf('"%s" should be blacklisted by default', $field));
+        }
+    }
+
+    #[Test]
     public function it_should_keep_the_blacklist_when_user_adds_custom_ignored_fields(): void
     {
         $factory = new AuditMetadataFactory(['title']);

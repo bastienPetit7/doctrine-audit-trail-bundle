@@ -17,8 +17,11 @@ final class AuditMetadataFactory
      * @var list<string>
      */
     public const DEFAULT_IGNORED_FIELDS = [
+        // Credentials
         'password',
         'plainPassword',
+        'passwordHash',
+        'legacyPasswordHash',
         'apiKey',
         'apiToken',
         'accessToken',
@@ -27,7 +30,20 @@ final class AuditMetadataFactory
         'token',
         'salt',
         'pin',
+        // MFA / recovery
+        'mfaSecret',
+        'totpSecret',
+        'recoveryCode',
+        // Banking / card data — high-risk fields commonly exposed at DELETE time
+        'iban',
+        'bic',
+        'swift',
+        'pan',
+        'panMasked',
+        'cardNumber',
+        'cardCvv',
         'cvv',
+        'cardPin',
     ];
 
     /** @var array<class-string, AuditMetadata> */

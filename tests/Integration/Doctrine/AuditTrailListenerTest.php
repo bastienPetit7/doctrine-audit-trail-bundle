@@ -13,6 +13,7 @@ use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
 use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
@@ -100,7 +101,7 @@ final class AuditTrailListenerTest extends TestCase
     }
 
     #[Test]
-    public function it_should_record_a_delete_with_a_before_snapshot(): void
+    public function it_should_record_a_delete_with_a_snapshot_hash_in_minimal_mode_by_default(): void
     {
         $product = $this->newProduct('Widget', 100);
         $this->appEntityManager->persist($product);
@@ -115,7 +116,46 @@ final class AuditTrailListenerTest extends TestCase
         self::assertCount(2, $logs);
         self::assertSame(AuditAction::Delete, $logs[1]->getAction());
         self::assertSame($id, $logs[1]->getEntityId());
+        self::assertSame([], $logs[1]->getDiff()['after']);
+        self::assertTrue($logs[1]->isMinimalDeleteSnapshot());
+        $hash = $logs[1]->getSnapshotHash();
+        self::assertNotNull($hash);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $hash);
+        self::assertArrayNotHasKey('name', $logs[1]->getDiff()['before']);
+    }
+
+    #[Test]
+    public function it_should_record_a_full_before_snapshot_when_delete_mode_is_full(): void
+    {
+        $appEntityManager = $this->buildEntityManager(
+            [\dirname(__DIR__, 2).'/Fixtures/Doctrine'],
+            [AuditedProduct::class, PlainCategory::class],
+        );
+        $auditEntityManager = $this->createAuditEntityManager();
+        $this->registerListener($appEntityManager, $auditEntityManager, enabled: true, deleteSnapshotMode: DeleteSnapshotMode::Full);
+
+        $product = $this->newProduct('Widget', 100);
+        $appEntityManager->persist($product);
+        $appEntityManager->flush();
+        $id = (string) $product->id;
+
+        $appEntityManager->remove($product);
+        $appEntityManager->flush();
+
+        $auditEntityManager->clear();
+        /** @var list<AuditTrailEntry> $logs */
+        $logs = $auditEntityManager
+            ->createQuery('SELECT a FROM '.AuditTrailEntry::class.' a ORDER BY a.id ASC')
+            ->getResult();
+
+        self::assertCount(2, $logs);
+        self::assertSame(AuditAction::Delete, $logs[1]->getAction());
+        self::assertSame($id, $logs[1]->getEntityId());
         self::assertSame('Widget', $logs[1]->getDiff()['before']['name']);
+        self::assertSame(100, $logs[1]->getDiff()['before']['price']);
+        self::assertFalse($logs[1]->isMinimalDeleteSnapshot());
+        self::assertNull($logs[1]->getSnapshotHash());
+        self::assertArrayNotHasKey('secret', $logs[1]->getDiff()['before']);
         self::assertSame([], $logs[1]->getDiff()['after']);
     }
 
@@ -154,6 +194,7 @@ final class AuditTrailListenerTest extends TestCase
         EntityManagerInterface $appEntityManager,
         EntityManagerInterface $auditEntityManager,
         bool $enabled,
+        DeleteSnapshotMode $deleteSnapshotMode = DeleteSnapshotMode::Minimal,
     ): void {
         $resolver = new class implements AuditUserResolverInterface {
             public function resolve(): AuditActor
@@ -164,7 +205,10 @@ final class AuditTrailListenerTest extends TestCase
 
         $listener = new AuditTrailListener(
             new AuditMetadataFactory(),
-            new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()])),
+            new ChangeSetExtractor(
+                new DiffFormatterRegistry([new ScalarValueFormatter()]),
+                deleteSnapshotMode: $deleteSnapshotMode,
+            ),
             new AuditTrailEntryFactory(),
             new DoctrineAuditPersister($auditEntityManager),
             $resolver,

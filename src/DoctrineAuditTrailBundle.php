@@ -73,6 +73,11 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                             ->min(0)
                             ->defaultValue(65536)
                         ->end()
+                        ->enumNode('delete_snapshot_mode')
+                            ->info('How DELETE snapshots are stored. "minimal" (default) stores only a SHA-256 fingerprint of the non-blacklisted field state (data minimization, not encryption). "full" stores every non-blacklisted field in cleartext — opt-in for legacy/forensic needs.')
+                            ->values(['minimal', 'full'])
+                            ->defaultValue('minimal')
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('actor')
@@ -144,6 +149,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
         $builder->setParameter('doctrine_audit_trail.ignored_fields', $config['ignored_fields'] ?? []);
         $builder->setParameter('doctrine_audit_trail.force_audit_fields', $config['force_audit_fields'] ?? []);
         $builder->setParameter('doctrine_audit_trail.diff.max_size_bytes', $config['diff']['max_size_bytes'] ?? 65536);
+        $builder->setParameter('doctrine_audit_trail.diff.delete_snapshot_mode', $config['diff']['delete_snapshot_mode'] ?? 'minimal');
         $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
 
         $tableName = $config['storage']['table_name'] ?? self::DEFAULT_TABLE_NAME;

@@ -6,6 +6,7 @@ namespace Metadev\DoctrineAuditTrailBundle\Integrity;
 
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Util\CanonicalJson;
 
 final class AuditEntrySignature
 {
@@ -24,7 +25,7 @@ final class AuditEntrySignature
         ?string $actorLabel,
         \DateTimeImmutable $createdAt,
     ): string {
-        self::ksortRecursive($diff);
+        CanonicalJson::ksortRecursive($diff);
 
         return json_encode([
             'entityClass' => $entityClass,
@@ -54,20 +55,5 @@ final class AuditEntrySignature
             $entry->getActorLabel(),
             $entry->getCreatedAt(),
         );
-    }
-
-    /**
-     * @param array<array-key, mixed> $data
-     */
-    private static function ksortRecursive(array &$data): void
-    {
-        foreach ($data as &$value) {
-            if (\is_array($value)) {
-                self::ksortRecursive($value);
-            }
-        }
-        unset($value);
-
-        ksort($data);
     }
 }

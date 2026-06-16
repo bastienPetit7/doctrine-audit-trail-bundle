@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Metadev\DoctrineAuditTrailBundle\Diff;
 
 use Doctrine\ORM\PersistentCollection;
+use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
+use Metadev\DoctrineAuditTrailBundle\Util\CanonicalJson;
 
 final class ChangeSetExtractor
 {
@@ -14,6 +16,7 @@ final class ChangeSetExtractor
     public function __construct(
         private readonly DiffFormatterRegistry $formatters,
         private readonly int $maxSizeBytes = 65536,
+        private readonly DeleteSnapshotMode $deleteSnapshotMode = DeleteSnapshotMode::Minimal,
     ) {
     }
 
@@ -61,7 +64,30 @@ final class ChangeSetExtractor
             $before[$field] = $this->formatters->format($value);
         }
 
+        if (DeleteSnapshotMode::Minimal === $this->deleteSnapshotMode) {
+            return $this->minimalDeletionSnapshot($before);
+        }
+
         return $this->enforceSizeQuota(['before' => $before, 'after' => []]);
+    }
+
+    /**
+     * @param array<string, mixed> $before
+     *
+     * @return array{before: array<string, mixed>, after: array<string, mixed>}
+     */
+    private function minimalDeletionSnapshot(array $before): array
+    {
+        try {
+            $canonical = CanonicalJson::encode($before);
+        } catch (\JsonException) {
+            return $this->truncationMarker('encoding_failed');
+        }
+
+        return [
+            'before' => ['_snapshot_hash' => hash('sha256', $canonical)],
+            'after' => [],
+        ];
     }
 
     /**

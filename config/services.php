@@ -8,6 +8,7 @@ use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
+use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Factory\AuditTrailEntryFactory;
 use Metadev\DoctrineAuditTrailBundle\Integrity\SignatureProviderInterface;
@@ -20,6 +21,7 @@ use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use Metadev\DoctrineAuditTrailBundle\User\DefaultAuditUserResolver;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
+use function Symfony\Component\DependencyInjection\Loader\Configurator\inline_service;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
@@ -56,6 +58,9 @@ return static function (ContainerConfigurator $container): void {
         ->args([
             service(DiffFormatterRegistry::class),
             param('doctrine_audit_trail.diff.max_size_bytes'),
+            inline_service(DeleteSnapshotMode::class)
+                ->factory([DeleteSnapshotMode::class, 'from'])
+                ->args([param('doctrine_audit_trail.diff.delete_snapshot_mode')]),
         ]);
 
     $services->set(ScalarValueFormatter::class)

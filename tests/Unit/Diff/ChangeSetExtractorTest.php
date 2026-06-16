@@ -8,6 +8,7 @@ use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
+use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadataFactory;
 use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Entity\AuditedDummy;
@@ -16,9 +17,15 @@ use PHPUnit\Framework\TestCase;
 
 final class ChangeSetExtractorTest extends TestCase
 {
-    private function extractor(int $maxSizeBytes = 65536): ChangeSetExtractor
-    {
-        return new ChangeSetExtractor(new DiffFormatterRegistry([new ScalarValueFormatter()]), $maxSizeBytes);
+    private function extractor(
+        int $maxSizeBytes = 65536,
+        DeleteSnapshotMode $deleteSnapshotMode = DeleteSnapshotMode::Minimal,
+    ): ChangeSetExtractor {
+        return new ChangeSetExtractor(
+            new DiffFormatterRegistry([new ScalarValueFormatter()]),
+            $maxSizeBytes,
+            $deleteSnapshotMode,
+        );
     }
 
     #[Test]
@@ -120,15 +127,79 @@ final class ChangeSetExtractorTest extends TestCase
     }
 
     #[Test]
-    public function it_should_snapshot_the_before_state_for_deletions(): void
+    public function it_should_snapshot_the_full_before_state_for_deletions_in_full_mode(): void
     {
         $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
 
-        $diff = $this->extractor()->extractDeletion(
+        $diff = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Full)->extractDeletion(
             ['title' => 'Gone', 'password' => 'secret'],
             $metadata,
         );
 
         self::assertSame(['before' => ['title' => 'Gone'], 'after' => []], $diff);
+    }
+
+    #[Test]
+    public function it_should_replace_deletion_payload_with_a_snapshot_hash_in_minimal_mode(): void
+    {
+        $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
+
+        $diff = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
+            ['title' => 'Gone', 'password' => 'secret'],
+            $metadata,
+        );
+
+        self::assertSame([], $diff['after']);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $diff['before']['_snapshot_hash']);
+        self::assertArrayNotHasKey('title', $diff['before']);
+        self::assertArrayNotHasKey('password', $diff['before']);
+        self::assertArrayNotHasKey('_algorithm', $diff['before']);
+    }
+
+    #[Test]
+    public function it_should_emit_a_truncation_marker_when_a_deletion_snapshot_cannot_be_encoded(): void
+    {
+        $diff = $this->extractor()->extractDeletion(
+            ['ratio' => \NAN],
+            new AuditMetadata(auditable: true),
+        );
+
+        self::assertSame([], $diff['before']);
+        self::assertTrue($diff['after']['_truncated']);
+        self::assertSame('encoding_failed', $diff['after']['_reason']);
+    }
+
+    #[Test]
+    public function it_should_produce_a_deterministic_snapshot_hash_regardless_of_field_order(): void
+    {
+        $metadata = new AuditMetadata(auditable: true);
+
+        $diffA = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
+            ['title' => 'Gone', 'price' => 100],
+            $metadata,
+        );
+        $diffB = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
+            ['price' => 100, 'title' => 'Gone'],
+            $metadata,
+        );
+
+        self::assertSame($diffA['before']['_snapshot_hash'], $diffB['before']['_snapshot_hash']);
+    }
+
+    #[Test]
+    public function it_should_never_leak_blacklisted_fields_into_the_snapshot_hash(): void
+    {
+        $metadata = new AuditMetadata(auditable: true, ignoredFields: ['iban' => true]);
+
+        $diffWithSecret = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
+            ['title' => 'Gone', 'iban' => 'FR7630006000011234567890189'],
+            $metadata,
+        );
+        $diffWithoutSecret = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
+            ['title' => 'Gone'],
+            $metadata,
+        );
+
+        self::assertSame($diffWithSecret['before']['_snapshot_hash'], $diffWithoutSecret['before']['_snapshot_hash']);
     }
 }

@@ -138,14 +138,18 @@ doctrine_audit_trail:
         table_name: audit_trail
 
     # A built-in security blacklist is always applied first (secure by default):
-    #   password, plainPassword, apiKey, apiToken, accessToken, refreshToken,
-    #   secret, token, salt, pin, cvv
+    #   password, plainPassword, passwordHash, apiKey, apiToken, accessToken,
+    #   refreshToken, secret, token, salt, pin, cvv, iban, bic, pan, mfaSecret, …
     ignored_fields:                     # extra fields, MERGED with the blacklist
         - ssn
-        - iban
+        - nationalId
 
     force_audit_fields:                 # escape hatch: audit a blacklisted field
         - refreshToken                  # e.g. to detect token replay
+
+    diff:
+        max_size_bytes: 65536           # cap JSON diff size (0 = disabled)
+        delete_snapshot_mode: minimal   # minimal (hash) | full (cleartext fields)
 
     actor:
         fallback_label: cli             # label outside an HTTP request
@@ -223,6 +227,36 @@ Entities without `#[Auditable]` are ignored.
 
 The optional `label` is persisted on each row in the `entity_label` column — useful
 for admin UIs that want a human-readable name next to (or instead of) the FQCN.
+
+## DELETE snapshot modes
+
+By default, DELETE entries store a **SHA-256 fingerprint** of the deleted
+entity's non-blacklisted state instead of field values in cleartext:
+
+| Mode | Config value | `diff.before` content | Use case |
+|------|--------------|------------------------|----------|
+| Minimal (default) | `minimal` | `{_snapshot_hash: "…"}` | GDPR-friendly, no cleartext duplication |
+| Full | `full` | All non-blacklisted field values | Forensic / legacy tooling |
+
+```yaml
+doctrine_audit_trail:
+    diff:
+        delete_snapshot_mode: full   # opt back in to cleartext DELETE snapshots
+```
+
+> The hash fingerprints the **non-blacklisted** state. It is data minimization,
+> not encryption. Sensitive fields must still be excluded via `#[AuditIgnore]`,
+> `ignored_fields`, or the built-in blacklist.
+
+Detect the shape at read time:
+
+```php
+if ($entry->isMinimalDeleteSnapshot()) {
+    $hash = $entry->getSnapshotHash();
+} else {
+    $title = $entry->getDiff()['before']['title'] ?? null;
+}
+```
 
 ## Reading the trail
 

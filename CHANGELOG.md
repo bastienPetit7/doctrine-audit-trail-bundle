@@ -12,6 +12,24 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-16
+
+### Security
+
+- **`audit:actor-anonymise` command** (GDPR art. 17) for in-place anonymisation
+  of actor PII across the audit table. Requires `--user-identifier` (actor
+  identifier matched against `audit_trail.userIdentifier`) and `--reason`
+  (free-text justification recorded in the operational logs). Rewrites
+  `userId` and `userIdentifier` using a `gdpr-<sha256>` hash, sets
+  `actorLabel` to `gdpr-anonymised`, clears `ipAddress` and `userAgent`, and
+  sets `actorAnonymisedAt`. When integrity sealing is enabled, it also
+  re-seals the row so tamper evidence remains valid. Supports `--dry-run`
+  and batched processing (`--batch`) in short all-or-nothing transactions.
+  ([5612530](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/5612530))
+- **Hardening recipe updated** (`docs/hardening.sql`) to allow the dedicated
+  role to perform the UPDATEs required by actor anonymisation while keeping
+  the append-only guarantees for other writes. ([5612530](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/5612530))
+
 ### Added
 
 - **`audit:prune` command** for retention-based pruning of old audit entries.
@@ -21,6 +39,7 @@ here with a migration note.
   configured via `doctrine_audit_trail.retention.default_age` so the command
   can be scheduled without arguments. Uses the existing `idx_audit_trail_created_at`
   index for index-bounded scans. Closes M-5 (Retention/Purge automatique).
+  ([6aa7835](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/6aa7835))
 
 ## [0.4.0] - 2026-06-16
 
@@ -262,7 +281,8 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.1.0...v0.2.0

@@ -24,10 +24,11 @@ final class AuditEntrySignature
         ?string $userAgent,
         ?string $actorLabel,
         \DateTimeImmutable $createdAt,
+        ?\DateTimeImmutable $actorAnonymisedAt = null,
     ): string {
         CanonicalJson::ksortRecursive($diff);
 
-        return json_encode([
+        $payload = [
             'entityClass' => $entityClass,
             'entityId' => $entityId,
             'action' => $action->value,
@@ -38,7 +39,13 @@ final class AuditEntrySignature
             'userAgent' => $userAgent,
             'actorLabel' => $actorLabel,
             'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),
-        ], \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
+        ];
+
+        if (null !== $actorAnonymisedAt) {
+            $payload['actorAnonymisedAt'] = $actorAnonymisedAt->format(\DateTimeInterface::ATOM);
+        }
+
+        return json_encode($payload, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
     }
 
     public static function payloadFor(AuditTrailEntry $entry): string
@@ -54,6 +61,7 @@ final class AuditEntrySignature
             $entry->getUserAgent(),
             $entry->getActorLabel(),
             $entry->getCreatedAt(),
+            $entry->getActorAnonymisedAt(),
         );
     }
 }

@@ -36,6 +36,7 @@ label for CLI / messenger / anonymous contexts).
 - [Marking entities](#marking-entities)
 - [Reading the trail](#reading-the-trail)
 - [Retention & pruning](#retention--pruning)
+- [GDPR actor anonymisation](#gdpr-actor-anonymisation)
 - [Extension points](#extension-points)
 - [Quality & tests](#quality--tests)
 - [Contributing](#contributing)
@@ -161,7 +162,21 @@ doctrine_audit_trail:
         soft_fail: false                # catch + log write failures instead of breaking the app
         message_bus: messenger.bus.default   # used in async mode
         batch_size: 100                 # async mode: max entries per Messenger message
+
+    retention:
+        default_age: ~                  # cutoff used by audit:prune when --before is omitted
+                                        # (e.g. '-10 years', '2020-01-01'); see Retention & pruning
+
+    integrity:                          # see Cryptographic seal (HMAC) for usage
+        enabled: false                  # opt-in HMAC tamper-evidence seal
+        secret: ~                       # required when enabled without a custom provider (use an env var)
+        secret_provider: ~              # custom SignatureProviderInterface service id (KMS/Vault)
 ```
+
+> Every key shown above carries its **default value** — the configuration block
+> is fully optional. The bundle works out of the box once `storage.entity_manager`
+> points at an existing connection. Sections `retention`, `integrity` and
+> `audit:actor-anonymise` are documented in their own sections below.
 
 > **⚠️ `force_audit_fields` writes the value IN CLEARTEXT.** This option overrides
 > the built-in secret blacklist (`password`, `refreshToken`, `apiKey`, …) and stores
@@ -325,6 +340,71 @@ host applications already own scheduling.
 > no `DELETE` privilege on the audit table (recommended for tamper-evidence),
 > run `audit:prune` from a dedicated role, or wrap the deletion in a Postgres
 > `SECURITY DEFINER` function owned by the privileged role.
+
+## GDPR actor anonymisation
+
+GDPR art. 17 (right to be forgotten) cannot be satisfied by deleting audit
+rows: doing so breaks the append-only contract and would defeat the integrity
+seal. The bundle ships an `audit:actor-anonymise` console command that
+**rewrites the actor PII columns in-place** (`userId`, `userIdentifier`,
+`ipAddress`, `userAgent`, `actorLabel`) for every row attributed to a given
+subject, then stamps an `actorAnonymisedAt` marker:
+
+```bash
+# Anonymise every entry attributed to user "jane"
+bin/console audit:actor-anonymise --user-identifier="jane" --reason="GDPR-art-17 ticket #4711"
+
+# Preview first
+bin/console audit:actor-anonymise --user-identifier="jane" --reason="GDPR-art-17" --dry-run
+
+# Chunked processing on large tables (default 500)
+bin/console audit:actor-anonymise --user-identifier="jane" --reason="GDPR-art-17" --batch=200
+```
+
+What happens to each matched row:
+
+| Column            | After anonymisation                                |
+|-------------------|----------------------------------------------------|
+| `userIdentifier`  | `hash('sha256', <original>)` (deterministic, 64-char hex) |
+| `userId`          | `hash('sha256', <original>)` or `null` if it was null |
+| `ipAddress`       | `NULL`                                             |
+| `userAgent`       | `NULL`                                             |
+| `actorLabel`      | `'gdpr-anonymised'`                                |
+| `actorAnonymisedAt` | `now()` (UTC)                                    |
+| `signature`       | **recomputed** so `audit:verify` keeps passing     |
+
+The deterministic sha256 lets support / legal teams correlate the rows that
+belonged to the same erased subject without ever holding the cleartext
+identifier again. The original `userIdentifier` itself **never appears in the
+PSR log** either — only its hash, the reason, the count, and timing are logged
+(`audit.actor_anonymise.completed`).
+
+> **Scope** — `audit:actor-anonymise` redacts the **actor** columns only. The
+> `diff` payload often captures the user's *own* entity (e.g. a `User.email`
+> update); auto-scanning JSON for PII would be brittle and unsafe, so the
+> bundle leaves that to a dedicated application-side script that knows which
+> entities reference the erased subject. Use this command together with such a
+> script for full right-to-be-forgotten coverage.
+
+### Append-only hardening and anonymisation
+
+If you have applied the [`docs/hardening.sql`](docs/hardening.sql) recipe, the
+audit role rejects `UPDATE` — so `audit:actor-anonymise` will fail by design,
+exactly like `audit:prune`. The bundle does not bypass that on its own; pick
+one of:
+
+1. **Dedicated role** — run `audit:actor-anonymise` against a second Doctrine
+   connection that uses a `audit_anonymiser` role granted `SELECT, UPDATE` on
+   the audit table. The application role stays `INSERT, SELECT` only.
+2. **`SECURITY DEFINER` function (Postgres)** — wrap the UPDATE in a function
+   owned by a privileged role, and adapt the trigger so it accepts that
+   function's `current_user`.
+3. **Session flag (Postgres)** — keep the trigger but skip its `RAISE` when
+   `current_setting('audit.allow_anonymise', true) = 'true'`, then set
+   `SET LOCAL audit.allow_anonymise = 'true'` in the command's transaction.
+
+See the optional trigger example at the end of `docs/hardening.sql` for
+pattern (1).
 
 ## Extension points
 

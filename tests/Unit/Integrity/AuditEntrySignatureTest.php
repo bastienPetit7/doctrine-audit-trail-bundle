@@ -79,4 +79,64 @@ final class AuditEntrySignatureTest extends TestCase
             $this->payload($diff, userIdentifier: 'mallory'),
         );
     }
+
+    #[Test]
+    public function it_should_produce_an_unchanged_payload_when_actor_anonymised_at_is_null(): void
+    {
+        // Backward-compatibility: rows captured before the GDPR-anonymise
+        // feature MUST keep verifying — the JSON they signed must not change.
+        $diff = ['before' => ['title' => 'a'], 'after' => ['title' => 'b']];
+
+        $legacyPayload = AuditEntrySignature::payload(
+            'App\\Entity\\Order',
+            '42',
+            AuditAction::Update,
+            $diff,
+            '7',
+            'jane',
+            '203.0.113.7',
+            'PHPUnit',
+            'jane',
+            new \DateTimeImmutable(self::CREATED_AT),
+        );
+
+        $explicitNullPayload = AuditEntrySignature::payload(
+            'App\\Entity\\Order',
+            '42',
+            AuditAction::Update,
+            $diff,
+            '7',
+            'jane',
+            '203.0.113.7',
+            'PHPUnit',
+            'jane',
+            new \DateTimeImmutable(self::CREATED_AT),
+            null,
+        );
+
+        self::assertSame($legacyPayload, $explicitNullPayload);
+        self::assertStringNotContainsString('actorAnonymisedAt', $legacyPayload);
+    }
+
+    #[Test]
+    public function it_should_include_actor_anonymised_at_in_the_payload_when_set(): void
+    {
+        $diff = ['before' => [], 'after' => []];
+
+        $payload = AuditEntrySignature::payload(
+            'App\\Entity\\Order',
+            '42',
+            AuditAction::Update,
+            $diff,
+            null,
+            hash('sha256', 'jane'),
+            null,
+            null,
+            'gdpr-anonymised',
+            new \DateTimeImmutable(self::CREATED_AT),
+            new \DateTimeImmutable('2026-06-12T08:00:00+00:00'),
+        );
+
+        self::assertStringContainsString('"actorAnonymisedAt":"2026-06-12T08:00:00+00:00"', $payload);
+    }
 }

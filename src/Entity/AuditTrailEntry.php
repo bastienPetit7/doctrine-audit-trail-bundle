@@ -49,6 +49,8 @@ class AuditTrailEntry
         private readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
         #[ORM\Column(type: Types::STRING, length: 128, nullable: true)]
         private readonly ?string $signature = null,
+        #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+        private readonly ?\DateTimeImmutable $actorAnonymisedAt = null,
     ) {
     }
 
@@ -122,6 +124,16 @@ class AuditTrailEntry
     public function getSignature(): ?string
     {
         return $this->signature;
+    }
+
+    public function getActorAnonymisedAt(): ?\DateTimeImmutable
+    {
+        return $this->actorAnonymisedAt;
+    }
+
+    public function isActorAnonymised(): bool
+    {
+        return null !== $this->actorAnonymisedAt;
     }
 
     public function isMinimalDeleteSnapshot(): bool

@@ -60,3 +60,25 @@ BEGIN
 END//
 
 DELIMITER ;
+
+
+-- =============== Optional: anonymisation-aware Postgres trigger ===============
+-- The recipe above blocks every UPDATE — including the in-place actor PII
+-- rewrite performed by `bin/console audit:actor-anonymise` (GDPR art. 17).
+-- If you need to keep the append-only contract AND honour right-to-be-forgotten
+-- requests, replace the trigger function with the variant below and run the
+-- console command from a dedicated role (e.g. `audit_anonymiser`) granted only
+-- `SELECT, UPDATE` on the audit table. The application role keeps
+-- `INSERT, SELECT` only.
+--
+-- CREATE OR REPLACE FUNCTION audit_trail_reject_mutation()
+--     RETURNS trigger AS $$
+-- BEGIN
+--     IF TG_OP = 'UPDATE' AND current_user = 'audit_anonymiser' THEN
+--         RETURN NEW;
+--     END IF;
+--     RAISE EXCEPTION 'audit_trail is append-only: % is not allowed', TG_OP;
+-- END;
+-- $$ LANGUAGE plpgsql;
+--
+-- GRANT SELECT, UPDATE ON audit_trail TO audit_anonymiser;

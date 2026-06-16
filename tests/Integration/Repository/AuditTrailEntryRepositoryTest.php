@@ -67,6 +67,62 @@ final class AuditTrailEntryRepositoryTest extends TestCase
         self::assertSame('jane', $rows[0]->getUserIdentifier());
     }
 
+    #[Test]
+    public function it_should_count_entries_older_than_a_cutoff(): void
+    {
+        $em = $this->createAuditEntityManager();
+        $this->seedAt($em, '2020-01-01 00:00:00');
+        $this->seedAt($em, '2020-06-01 00:00:00');
+        $this->seedAt($em, '2024-01-01 00:00:00');
+
+        $count = $this->repositoryFor($em)->countOlderThan(new \DateTimeImmutable('2022-01-01'));
+
+        self::assertSame(2, $count);
+    }
+
+    #[Test]
+    public function it_should_prune_entries_in_bounded_batches(): void
+    {
+        $em = $this->createAuditEntityManager();
+        for ($i = 1; $i <= 5; ++$i) {
+            $this->seedAt($em, \sprintf('2010-01-0%d 00:00:00', $i));
+        }
+
+        $repository = $this->repositoryFor($em);
+
+        self::assertSame(2, $repository->pruneOlderThan(new \DateTimeImmutable('2020-01-01'), 2));
+        self::assertSame(2, $repository->pruneOlderThan(new \DateTimeImmutable('2020-01-01'), 2));
+        self::assertSame(1, $repository->pruneOlderThan(new \DateTimeImmutable('2020-01-01'), 2));
+        self::assertSame(0, $repository->pruneOlderThan(new \DateTimeImmutable('2020-01-01'), 2));
+    }
+
+    #[Test]
+    public function it_should_reject_a_non_positive_batch_size(): void
+    {
+        $em = $this->createAuditEntityManager();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->repositoryFor($em)->pruneOlderThan(new \DateTimeImmutable('2020-01-01'), 0);
+    }
+
+    private function seedAt(EntityManagerInterface $em, string $createdAt): void
+    {
+        $em->persist(new AuditTrailEntry(
+            entityClass: 'App\\Entity\\Post',
+            entityId: '1',
+            entityLabel: null,
+            action: AuditAction::Update,
+            diff: ['before' => [], 'after' => ['title' => 'v']],
+            userId: '1',
+            userIdentifier: 'admin',
+            ipAddress: '127.0.0.1',
+            userAgent: 'PHPUnit',
+            actorLabel: 'admin',
+            createdAt: new \DateTimeImmutable($createdAt),
+        ));
+        $em->flush();
+    }
+
     private function repositoryFor(EntityManagerInterface $entityManager): AuditTrailEntryRepository
     {
         return new AuditTrailEntryRepository(new StubManagerRegistry($entityManager));

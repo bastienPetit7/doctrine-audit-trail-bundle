@@ -35,6 +35,7 @@ label for CLI / messenger / anonymous contexts).
 - [Configuration](#configuration)
 - [Marking entities](#marking-entities)
 - [Reading the trail](#reading-the-trail)
+- [Retention & pruning](#retention--pruning)
 - [Extension points](#extension-points)
 - [Quality & tests](#quality--tests)
 - [Contributing](#contributing)
@@ -281,6 +282,49 @@ public function history(AuditTrailEntryRepository $repository): void
     $byUser  = $repository->findByActor('jane_admin');
 }
 ```
+
+## Retention & pruning
+
+GDPR (art. 5(1)(e)) requires a finite, justified retention period. The bundle
+ships an `audit:prune` console command that deletes entries older than a
+cutoff:
+
+```bash
+# Delete every entry older than 7 years
+bin/console audit:prune --before="-7 years"
+
+# Preview first
+bin/console audit:prune --before="-7 years" --dry-run
+
+# Chunked deletion to keep transactions short on large tables (default 1000)
+bin/console audit:prune --before="2020-01-01" --batch=500
+```
+
+Configure a default cutoff so the command can be scheduled without arguments:
+
+```yaml
+# config/packages/doctrine_audit_trail.yaml
+doctrine_audit_trail:
+    retention:
+        default_age: '-10 years'   # any DateTimeImmutable-parseable spec
+```
+
+```bash
+bin/console audit:prune                # uses retention.default_age
+```
+
+The query is bounded by the existing `idx_audit_trail_created_at` index;
+deletions run in `--batch`-sized chunks so a single invocation never holds a
+long transaction on multi-million-row tables.
+
+Wire it to your scheduler of choice — `cron`, a k8s `CronJob`, or Symfony
+Scheduler. The bundle does **not** ship a scheduler integration on purpose:
+host applications already own scheduling.
+
+> **Note on append-only setups** — if the database role used by your app has
+> no `DELETE` privilege on the audit table (recommended for tamper-evidence),
+> run `audit:prune` from a dedicated role, or wrap the deletion in a Postgres
+> `SECURITY DEFINER` function owned by the privileged role.
 
 ## Extension points
 

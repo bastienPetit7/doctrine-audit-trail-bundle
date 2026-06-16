@@ -70,6 +70,45 @@ final class AuditTrailEntryRepository extends ServiceEntityRepository
             ->toIterable();
     }
 
+    public function countOlderThan(\DateTimeImmutable $cutoff): int
+    {
+        $count = $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->where('e.createdAt < :cutoff')
+            ->setParameter('cutoff', $cutoff)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    public function pruneOlderThan(\DateTimeImmutable $cutoff, int $batchSize): int
+    {
+        if ($batchSize < 1) {
+            throw new \InvalidArgumentException(\sprintf('Batch size must be >= 1, got %d.', $batchSize));
+        }
+
+        $ids = $this->createQueryBuilder('e')
+            ->select('e.id')
+            ->where('e.createdAt < :cutoff')
+            ->setParameter('cutoff', $cutoff)
+            ->orderBy('e.id', 'ASC')
+            ->setMaxResults($batchSize)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ([] === $ids) {
+            return 0;
+        }
+
+        return (int) $this->createQueryBuilder('e')
+            ->delete()
+            ->where('e.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
+    }
+
     public static function cappedLimit(int $limit): int
     {
         if ($limit < 1) {

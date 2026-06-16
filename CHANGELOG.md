@@ -12,6 +12,16 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Added
+
+- **`audit:prune` command** for retention-based pruning of old audit entries.
+  Accepts `--before=<spec>` (any `DateTimeImmutable`-parseable string such as
+  `-7 years` or `2020-01-01`), `--dry-run` to preview, and `--batch=<size>`
+  (default 1000) to chunk deletions on large tables. A default cutoff can be
+  configured via `doctrine_audit_trail.retention.default_age` so the command
+  can be scheduled without arguments. Uses the existing `idx_audit_trail_created_at`
+  index for index-bounded scans. Closes M-5 (Retention/Purge automatique).
+
 ## [0.4.0] - 2026-06-16
 
 ### Security

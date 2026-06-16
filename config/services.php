@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
+use Metadev\DoctrineAuditTrailBundle\Command\PruneAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Command\VerifyAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
@@ -88,5 +89,12 @@ return static function (ContainerConfigurator $container): void {
         ->args([
             service(AuditTrailEntryRepository::class),
             service(SignatureProviderInterface::class)->nullOnInvalid(),
+        ]);
+
+    $services->set(PruneAuditTrailCommand::class)
+        ->args([
+            service(AuditTrailEntryRepository::class),
+            param('doctrine_audit_trail.retention.default_age'),
+            service('logger')->nullOnInvalid(),
         ]);
 };

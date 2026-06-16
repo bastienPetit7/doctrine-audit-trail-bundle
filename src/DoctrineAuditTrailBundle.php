@@ -117,6 +117,15 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                         ->end()
                     ->end()
                 ->end()
+                ->arrayNode('retention')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('default_age')
+                            ->info('Default cutoff used by audit:prune when --before is omitted (e.g. "-10 years", "2020-01-01"). Any DateTimeImmutable-parseable spec.')
+                            ->defaultNull()
+                        ->end()
+                    ->end()
+                ->end()
                 ->arrayNode('integrity')
                     ->info('Opt-in HMAC tamper-evidence seal written on each audit row.')
                     ->addDefaultsIfNotSet()
@@ -151,6 +160,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
         $builder->setParameter('doctrine_audit_trail.diff.max_size_bytes', $config['diff']['max_size_bytes'] ?? 65536);
         $builder->setParameter('doctrine_audit_trail.diff.delete_snapshot_mode', $config['diff']['delete_snapshot_mode'] ?? 'minimal');
         $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
+        $builder->setParameter('doctrine_audit_trail.retention.default_age', $config['retention']['default_age'] ?? null);
 
         $tableName = $config['storage']['table_name'] ?? self::DEFAULT_TABLE_NAME;
         $builder->setParameter('doctrine_audit_trail.storage.table_name', $tableName);

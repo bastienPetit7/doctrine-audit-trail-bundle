@@ -145,7 +145,7 @@ doctrine_audit_trail:
         - nationalId
 
     force_audit_fields:                 # escape hatch: audit a blacklisted field
-        - refreshToken                  # e.g. to detect token replay
+        - refreshToken                  # ⚠️ stored in CLEARTEXT — see warning below
 
     diff:
         max_size_bytes: 65536           # cap JSON diff size (0 = disabled)
@@ -161,6 +161,18 @@ doctrine_audit_trail:
         message_bus: messenger.bus.default   # used in async mode
         batch_size: 100                 # async mode: max entries per Messenger message
 ```
+
+> **⚠️ `force_audit_fields` writes the value IN CLEARTEXT.** This option overrides
+> the built-in secret blacklist (`password`, `refreshToken`, `apiKey`, …) and stores
+> the raw field value in the audit `diff` column on every change. Auditing a token
+> *« to detect replay »* effectively **duplicates the secret into the audit store**,
+> doubling its leak surface — a stolen audit backup now also leaks live credentials.
+>
+> If you really need to audit a secret, **never log the cleartext**. Register a
+> dedicated `ValueFormatterInterface` that emits a non-reversible fingerprint
+> (e.g. `substr(hash_hmac('sha256', $value, $appSecret), 0, 16)`) and tag it with
+> a higher priority than `ScalarValueFormatter`. The audit trail then records
+> *« the value changed »* without storing the value itself.
 
 ## Consistency model
 
@@ -300,6 +312,23 @@ doctrine_audit_trail:
     actor:
         user_resolver: App\Audit\MyResolver
 ```
+
+> **⚠️ Behind a reverse proxy, configure `framework.trusted_proxies` / `trusted_headers`.**
+> The default actor resolver captures the client IP via
+> `Request::getClientIp()`, which only honours `X-Forwarded-For` when the request
+> comes from a trusted proxy. **If `trusted_proxies` is misconfigured (or empty)
+> behind a load balancer / CDN**, two failure modes appear:
+>
+> - every audit row records the proxy's IP instead of the real client — actor
+>   attribution becomes useless for forensics;
+> - if you *do* trust `X-Forwarded-For` without restricting upstream, **any
+>   external caller can spoof the header** (`X-Forwarded-For: 1.2.3.4`) and poison
+>   the audit log with attacker-controlled IPs.
+>
+> Configure `framework.trusted_proxies` to the exact CIDR of your edge layer
+> (see [Symfony docs](https://symfony.com/doc/current/deployment/proxies.html)),
+> or override `AuditUserResolverInterface` to source the IP from a channel you
+> control.
 
 ### Anonymising actor PII (IP / identifier) — GDPR
 

@@ -12,6 +12,8 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-16
+
 ### Security
 
 - **DELETE snapshots default to minimal mode.** `diff.delete_snapshot_mode`
@@ -20,10 +22,12 @@ here with a migration note.
   with `diff.delete_snapshot_mode: full` for forensic needs. The hash is data
   minimization, not encryption — sensitive fields must still be declared via
   `#[AuditIgnore]` or `ignored_fields`.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 - **Extended built-in security blacklist** with banking and MFA field names
   (`iban`, `bic`, `swift`, `pan`, `passwordHash`, `legacyPasswordHash`,
   `mfaSecret`, `totpSecret`, `recoveryCode`, `cardNumber`, `cardCvv`,
   `cardPin`, `panMasked`).
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 
 ### Added
 
@@ -31,11 +35,17 @@ here with a migration note.
   `minimal`) — controls how DELETE diffs are stored. Minimal mode persists
   `{_snapshot_hash: "…"}` under `diff.before`; full mode persists every
   non-blacklisted field value.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
+- **`DeleteSnapshotMode` enum** — typed representation of the
+  `delete_snapshot_mode` configuration values.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 - **`AuditTrailEntry::isMinimalDeleteSnapshot()`** and
   **`getSnapshotHash()`** — let consumers detect and read minimal DELETE rows
   without probing the raw diff shape.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 - **`CanonicalJson` utility** — shared recursive key sorting for snapshot
   hashes and HMAC payload canonicalization.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 - **`diff.max_size_bytes` configuration** (default `65536`, set to `0` to
   disable) — caps the JSON-encoded diff payload. Beyond the limit the diff is
   replaced with `{_truncated: true, _reason: 'size_exceeded', _originalSize: N}`
@@ -43,16 +53,19 @@ here with a migration note.
   binary string) the marker uses `_reason: 'encoding_failed'`. Prevents a
   single mutation on a large `TEXT`/`JSON` column from bloating the audit
   table.
+  ([9dfc805](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/9dfc805))
 - **Cursor pagination on the repository.** `findByEntity()` and `findByActor()`
   now accept `int $limit = 50` and `?int $beforeId = null`, ordered by `id DESC`
   for stable, cursor-based pagination under concurrent writes. A hard cap of
   `AuditTrailEntryRepository::MAX_PAGE_SIZE` (1000) protects against accidental
   unbounded reads.
+  ([ebe892a](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/ebe892a))
 - **Indexes for common access patterns.** `idx_audit_trail_entity` extended to
   `(entityClass, entityId, id)` and new `idx_audit_trail_actor` on
   `(userIdentifier, id)` — covers the "history of entity X" and "actions of
   user X" queries that previously required a sequential scan. The trailing `id`
   matches the repository's `ORDER BY id DESC`, avoiding a filesort.
+  ([ebe892a](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/ebe892a))
 
 ### Changed
 
@@ -60,23 +73,30 @@ here with a migration note.
   `delete_snapshot_mode: minimal` no longer expose field values under
   `diff.before`. Use `AuditTrailEntry::isMinimalDeleteSnapshot()` to branch, or
   set `diff.delete_snapshot_mode: full` to restore the previous behaviour.
+  ([04da307](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/04da307))
 - **BC (minor): `userAgent` column type.** Was `TEXT` (unbounded), now
   `VARCHAR(512)`. `DefaultAuditUserResolver` truncates the `User-Agent` header
   at the source. A hostile client could otherwise send a multi-megabyte header
   and inflate the table indefinitely. Custom `AuditUserResolverInterface`
   implementations are responsible for staying within the 512-character limit.
+  ([ebe892a](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/ebe892a))
 - **BC (minor): `AuditTrailEntryRepository::findByEntity()` signature.** Added
   optional `$limit` (default `50`) and `$beforeId` (default `null`). Default
   behaviour now returns a paginated 50-row window ordered by `id DESC` instead
   of the full history sorted by `createdAt DESC`. Callers needing the whole
   history must loop with `$beforeId`. The unbounded behaviour was unsafe on
   entities with thousands of mutations.
+  ([ebe892a](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/ebe892a))
 - **Schema:** column type change on `user_agent` + two new indexes. Generate a
   migration (`doctrine:migrations:diff --em=audit`) or run
   `doctrine:schema:update --em=audit`. If existing rows have `user_agent`
   values longer than 512 characters, truncate them before applying the ALTER:
   `UPDATE audit_trail SET user_agent = LEFT(user_agent, 512) WHERE LENGTH(user_agent) > 512`
   (MySQL strict mode rejects the type change otherwise).
+  ([ebe892a](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/ebe892a))
+- **Documentation:** README clarifies the security implications of
+  `force_audit_fields` and `trusted_proxies`.
+  ([f285a4c](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/f285a4c))
 
 ## [0.3.0] - 2026-06-12
 
@@ -232,7 +252,8 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.1.0...v0.2.0
 [0.1.0-beta]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/releases/tag/v0.1.0

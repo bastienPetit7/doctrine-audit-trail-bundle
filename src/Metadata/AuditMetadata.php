@@ -18,6 +18,21 @@ final class AuditMetadata
 
     public function isFieldIgnored(string $field): bool
     {
-        return isset($this->ignoredFields[$field]);
+        if (isset($this->ignoredFields[$field])) {
+            return true;
+        }
+
+        // for embedded sub-fields as "property.subProperty".
+        if (!str_contains($field, '.')) {
+            return false;
+        }
+
+        foreach (explode('.', $field) as $segment) {
+            if (isset($this->ignoredFields[$segment])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

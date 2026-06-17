@@ -121,4 +121,37 @@ final class AuditMetadataFactoryTest extends TestCase
         self::assertTrue($factory->isAuditable(new AuditedDummy()));
         self::assertFalse($factory->isAuditable(new PlainDummy()));
     }
+
+    #[Test]
+    public function it_should_ignore_embedded_subfields_when_the_parent_property_is_ignored(): void
+    {
+        $factory = new AuditMetadataFactory();
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertTrue($metadata->isFieldIgnored('password.hash'));
+        self::assertTrue($metadata->isFieldIgnored('password.salt'));
+    }
+
+    #[Test]
+    public function it_should_apply_the_default_deny_list_to_embedded_subfields(): void
+    {
+        $factory = new AuditMetadataFactory();
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertTrue($metadata->isFieldIgnored('apiKey.value'));
+        self::assertTrue($metadata->isFieldIgnored('refreshToken.exp'));
+    }
+
+    #[Test]
+    public function it_should_not_ignore_unrelated_dotted_fields(): void
+    {
+        $factory = new AuditMetadataFactory();
+
+        $metadata = $factory->getMetadata(AuditedDummy::class);
+
+        self::assertFalse($metadata->isFieldIgnored('price.amount'));
+        self::assertFalse($metadata->isFieldIgnored('title.localised'));
+    }
 }

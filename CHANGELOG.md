@@ -19,6 +19,12 @@ here with a migration note.
   `{class, id}` identity reference instead of leaving the value unchanged or
   relying on `__toString()`. Composite identifiers are emitted as a
   `{column: value}` map when the mapping declares multiple identifier fields.
+- **Embeddable (`#[ORM\Embedded]`) support.** Sub-fields are recorded with their
+  Doctrine dotted path (e.g. `price.amount`, `price.currency`). `#[AuditIgnore]`
+  placed on the embedded property now hides every sub-field, and the built-in
+  deny-list (`secret`, `apiKey`, `token`, …) matches against each segment of the
+  path — so a sub-field named `secret` on a non-ignored embeddable is still
+  filtered. Documented and covered by integration tests.
 
 ### Changed
 

@@ -258,6 +258,44 @@ Entities without `#[Auditable]` are ignored.
 The optional `label` is persisted on each row in the `entity_label` column — useful
 for admin UIs that want a human-readable name next to (or instead of) the FQCN.
 
+### Embeddables (`#[ORM\Embedded]`)
+
+Embeddable sub-fields are recorded with their Doctrine **dotted path** in the
+diff, e.g. an `#[ORM\Embedded] Money $price` produces `price.amount` and
+`price.currency` keys:
+
+```json
+{
+    "before": {"price.amount": 1000, "price.currency": "EUR"},
+    "after":  {"price.amount": 1500, "price.currency": "EUR"}
+}
+```
+
+Both ignore mechanisms operate per **segment** of the dotted path:
+
+- `#[AuditIgnore]` placed on the embedded property hides every sub-field
+  (`providerCreds.login`, `providerCreds.secret`, …).
+- The built-in deny-list and any user-defined `ignored_fields` match against
+  each segment, so a sub-field literally named `secret`, `apiKey`, `token`,
+  etc. is filtered even when the parent embeddable is **not** ignored.
+
+```php
+#[Auditable]
+class Order
+{
+    #[ORM\Embedded(class: Money::class)]
+    public Money $price;                  // recorded as price.amount / price.currency
+
+    #[ORM\Embedded(class: Credentials::class)]
+    #[AuditIgnore]
+    public Credentials $providerCreds;    // every sub-field hidden
+
+    #[ORM\Embedded(class: Credentials::class, columnPrefix: 'exposed_')]
+    public Credentials $exposedCreds;     // .login is recorded; .secret / .apiKey are
+                                          // still filtered by the default deny-list
+}
+```
+
 ## DELETE snapshot modes
 
 By default, DELETE entries store a **SHA-256 fingerprint** of the deleted

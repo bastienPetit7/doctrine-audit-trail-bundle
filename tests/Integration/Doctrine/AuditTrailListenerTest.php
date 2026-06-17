@@ -9,6 +9,7 @@ use Doctrine\ORM\Events;
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\DoctrineAssociationFormatter;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
@@ -20,6 +21,7 @@ use Metadev\DoctrineAuditTrailBundle\Persister\DoctrineAuditPersister;
 use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine\AuditedProduct;
 use Metadev\DoctrineAuditTrailBundle\Tests\Fixtures\Doctrine\PlainCategory;
 use Metadev\DoctrineAuditTrailBundle\Tests\Integration\InMemoryAuditEntityManagerTrait;
+use Metadev\DoctrineAuditTrailBundle\Tests\Integration\StubManagerRegistry;
 use Metadev\DoctrineAuditTrailBundle\User\AuditActor;
 use Metadev\DoctrineAuditTrailBundle\User\AuditUserResolverInterface;
 use PHPUnit\Framework\Attributes\Test;
@@ -171,6 +173,132 @@ final class AuditTrailListenerTest extends TestCase
     }
 
     #[Test]
+    public function it_should_resolve_the_id_of_an_association_persisted_in_the_same_flush(): void
+    {
+        $category = new PlainCategory();
+        $category->name = 'Tools';
+        $this->appEntityManager->persist($category);
+
+        $product = $this->newProduct('Widget', 100);
+        $product->category = $category;
+        $this->appEntityManager->persist($product);
+        $this->appEntityManager->flush();
+
+        $logs = $this->auditLogs();
+        $productLog = null;
+        foreach ($logs as $log) {
+            if (AuditedProduct::class === $log->getEntityClass()) {
+                $productLog = $log;
+                break;
+            }
+        }
+
+        self::assertNotNull($productLog);
+        self::assertNotNull($category->id);
+        self::assertSame(
+            ['class' => PlainCategory::class, 'id' => $category->id],
+            $productLog->getDiff()['after']['category'],
+        );
+    }
+
+    #[Test]
+    public function it_should_format_a_many_to_one_association_assigned_at_creation(): void
+    {
+        $category = new PlainCategory();
+        $category->name = 'Tools';
+        $this->appEntityManager->persist($category);
+        $this->appEntityManager->flush();
+
+        $product = $this->newProduct('Widget', 100);
+        $product->category = $category;
+        $this->appEntityManager->persist($product);
+        $this->appEntityManager->flush();
+
+        $logs = $this->auditLogs();
+
+        self::assertCount(1, $logs);
+        self::assertSame(AuditAction::Create, $logs[0]->getAction());
+        self::assertSame(
+            ['class' => PlainCategory::class, 'id' => $category->id],
+            $logs[0]->getDiff()['after']['category'],
+        );
+    }
+
+    #[Test]
+    public function it_should_record_a_many_to_one_association_change(): void
+    {
+        $oldCategory = new PlainCategory();
+        $oldCategory->name = 'Tools';
+        $newCategory = new PlainCategory();
+        $newCategory->name = 'Gadgets';
+        $this->appEntityManager->persist($oldCategory);
+        $this->appEntityManager->persist($newCategory);
+        $this->appEntityManager->flush();
+
+        $product = $this->newProduct('Widget', 100);
+        $product->category = $oldCategory;
+        $this->appEntityManager->persist($product);
+        $this->appEntityManager->flush();
+
+        $product->category = $newCategory;
+        $this->appEntityManager->flush();
+
+        $logs = $this->auditLogs();
+
+        self::assertCount(2, $logs);
+        self::assertSame(AuditAction::Update, $logs[1]->getAction());
+        self::assertSame(
+            ['class' => PlainCategory::class, 'id' => $oldCategory->id],
+            $logs[1]->getDiff()['before']['category'],
+        );
+        self::assertSame(
+            ['class' => PlainCategory::class, 'id' => $newCategory->id],
+            $logs[1]->getDiff()['after']['category'],
+        );
+    }
+
+    #[Test]
+    public function it_should_include_a_single_valued_association_in_a_full_delete_snapshot(): void
+    {
+        $appEntityManager = $this->buildEntityManager(
+            [\dirname(__DIR__, 2).'/Fixtures/Doctrine'],
+            [AuditedProduct::class, PlainCategory::class],
+        );
+        $auditEntityManager = $this->createAuditEntityManager();
+        $this->registerListener($appEntityManager, $auditEntityManager, enabled: true, deleteSnapshotMode: DeleteSnapshotMode::Full);
+
+        $category = new PlainCategory();
+        $category->name = 'Tools';
+        $appEntityManager->persist($category);
+
+        $product = new AuditedProduct();
+        $product->name = 'Widget';
+        $product->price = 100;
+        $product->secret = 'hidden';
+        $product->category = $category;
+        $appEntityManager->persist($product);
+        $appEntityManager->flush();
+
+        $categoryId = $category->id;
+
+        $appEntityManager->remove($product);
+        $appEntityManager->flush();
+
+        $auditEntityManager->clear();
+        /** @var list<AuditTrailEntry> $logs */
+        $logs = $auditEntityManager
+            ->createQuery('SELECT a FROM '.AuditTrailEntry::class.' a ORDER BY a.id ASC')
+            ->getResult();
+
+        self::assertCount(2, $logs);
+        self::assertSame(AuditAction::Delete, $logs[1]->getAction());
+        self::assertSame(
+            ['class' => PlainCategory::class, 'id' => $categoryId],
+            $logs[1]->getDiff()['before']['category'],
+        );
+    }
+
+    #[Test]
     public function it_should_not_loop_when_writing_the_audit_entry(): void
     {
         $product = $this->newProduct('Widget', 100);
@@ -206,7 +334,10 @@ final class AuditTrailListenerTest extends TestCase
         $listener = new AuditTrailListener(
             new AuditMetadataFactory(),
             new ChangeSetExtractor(
-                new DiffFormatterRegistry([new ScalarValueFormatter()]),
+                new DiffFormatterRegistry([
+                    new DoctrineAssociationFormatter(new StubManagerRegistry($appEntityManager)),
+                    new ScalarValueFormatter(),
+                ]),
                 deleteSnapshotMode: $deleteSnapshotMode,
             ),
             new AuditTrailEntryFactory(),

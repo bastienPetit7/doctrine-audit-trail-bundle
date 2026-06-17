@@ -8,6 +8,7 @@ use Metadev\DoctrineAuditTrailBundle\Command\PruneAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Command\VerifyAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\DoctrineAssociationFormatter;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
 use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
@@ -64,6 +65,10 @@ return static function (ContainerConfigurator $container): void {
                 ->factory([DeleteSnapshotMode::class, 'from'])
                 ->args([param('doctrine_audit_trail.diff.delete_snapshot_mode')]),
         ]);
+
+    $services->set(DoctrineAssociationFormatter::class)
+        ->autoconfigure(false)
+        ->tag('doctrine_audit_trail.value_formatter', ['priority' => -500]);
 
     $services->set(ScalarValueFormatter::class)
         ->autoconfigure(false)

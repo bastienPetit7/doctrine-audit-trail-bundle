@@ -12,6 +12,51 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Added
+
+- **`DoctrineAssociationFormatter`** (priority `-500`) — built-in formatter for
+  Doctrine-managed `ManyToOne` / `OneToOne` association values. Records a stable
+  `{class, id}` identity reference instead of leaving the value unchanged or
+  relying on `__toString()`. Composite identifiers are emitted as a
+  `{column: value}` map when the mapping declares multiple identifier fields.
+
+### Changed
+
+- **Two-phase diff pipeline.** `ChangeSetExtractor::extractChanges()` /
+  `extractDeletion()` now gather **raw** field values during `onFlush`; a new
+  `format()` step applies the formatter chain, the deletion-snapshot mode, and
+  the size quota during `postFlush`, after Doctrine has assigned generated
+  primary keys. `AuditTrailListener` calls `format()` just before persisting
+  audit rows.
+- **DELETE snapshots (`delete_snapshot_mode: full`)** now include single-valued
+  associations (`ManyToOne` / `OneToOne`) as `{class, id}` references alongside
+  scalar columns. `OneToMany` / `ManyToMany` collections remain out of scope.
+- **BC (minor): association diff shape on new rows.** Audited association
+  fields now persist as `{class, id}` (or a composite-key map) instead of being
+  left as non-JSON-serialisable objects, truncated (`_truncated:
+  encoding_failed`), or rendered via `__toString()`. Consumers parsing
+  `diff.before` / `diff.after` should branch on this shape. Historical rows
+  written before this release may still use the older representations for the
+  same field.
+- **Managed `Stringable` entities** linked through an association are formatted
+  as `{class, id}`, not as their `__toString()` output — consistent with the
+  association formatter taking precedence over `ScalarValueFormatter`.
+- **Documentation:** README updated for the association formatter, the two-phase
+  pipeline, full DELETE snapshots, and the `{class, id}` public API contract.
+
+### Fixed
+
+- **DELETE + full snapshot omitted associations.** `fieldValuesOf()` collected
+  only scalar mapped fields (`getFieldNames()`), so `DoctrineAssociationFormatter`
+  never ran on the delete path even when `delete_snapshot_mode: full`.
+- **Cascade-persist in the same flush recorded `{class, id: null}`.** Association
+  identifiers are now resolved at `postFlush` time, matching the existing
+  back-fill behaviour for the audited entity's own primary key on `Create`.
+- **Composite-key associations collapsed to a bare scalar** when only one
+  identifier column was populated at format time. Shape now follows the mapping's
+  identifier cardinality (`ClassMetadata::getIdentifier()`), not the number of
+  values returned by `getIdentifierValues()`.
+
 ## [0.5.0] - 2026-06-16
 
 ### Security

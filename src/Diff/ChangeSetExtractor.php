@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Metadev\DoctrineAuditTrailBundle\Diff;
 
 use Doctrine\ORM\PersistentCollection;
+use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
 use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
 use Metadev\DoctrineAuditTrailBundle\Util\CanonicalJson;
@@ -40,11 +41,11 @@ final class ChangeSetExtractor
             }
 
             [$old, $new] = $values;
-            $before[$field] = $this->formatters->format($old);
-            $after[$field] = $this->formatters->format($new);
+            $before[$field] = $old;
+            $after[$field] = $new;
         }
 
-        return $this->enforceSizeQuota(['before' => $before, 'after' => $after]);
+        return ['before' => $before, 'after' => $after];
     }
 
     /**
@@ -61,14 +62,34 @@ final class ChangeSetExtractor
                 continue;
             }
 
+            $before[$field] = $value;
+        }
+
+        return ['before' => $before, 'after' => []];
+    }
+
+    /**
+     * @param array{before: array<string, mixed>, after: array<string, mixed>} $raw
+     *
+     * @return array{before: array<string, mixed>, after: array<string, mixed>}
+     */
+    public function format(array $raw, AuditAction $action): array
+    {
+        $before = [];
+        foreach ($raw['before'] as $field => $value) {
             $before[$field] = $this->formatters->format($value);
         }
 
-        if (DeleteSnapshotMode::Minimal === $this->deleteSnapshotMode) {
+        $after = [];
+        foreach ($raw['after'] as $field => $value) {
+            $after[$field] = $this->formatters->format($value);
+        }
+
+        if (AuditAction::Delete === $action && DeleteSnapshotMode::Minimal === $this->deleteSnapshotMode) {
             return $this->minimalDeletionSnapshot($before);
         }
 
-        return $this->enforceSizeQuota(['before' => $before, 'after' => []]);
+        return $this->enforceSizeQuota(['before' => $before, 'after' => $after]);
     }
 
     /**

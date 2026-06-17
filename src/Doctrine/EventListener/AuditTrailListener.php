@@ -119,10 +119,12 @@ final class AuditTrailListener
                 continue;
             }
 
+            $diff = $this->changeSetExtractor->format($pending->diff, $pending->action);
+
             $logs[] = $this->auditTrailEntryFactory->create(
                 $pending->entity,
                 $pending->action,
-                $pending->diff,
+                $diff,
                 $actor,
                 $pending->identifier,
                 $pending->entityLabel,
@@ -158,6 +160,13 @@ final class AuditTrailListener
 
         $values = [];
         foreach ($classMetadata->getFieldNames() as $field) {
+            $values[$field] = $classMetadata->getFieldValue($entity, $field);
+        }
+
+        foreach ($classMetadata->getAssociationNames() as $field) {
+            if (!$classMetadata->isSingleValuedAssociation($field)) {
+                continue;
+            }
             $values[$field] = $classMetadata->getFieldValue($entity, $field);
         }
 

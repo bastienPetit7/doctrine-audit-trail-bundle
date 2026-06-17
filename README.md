@@ -17,9 +17,11 @@ diff, and the actor (authenticated user with IP / user-agent, or a fallback
 label for CLI / messenger / anonymous contexts).
 
 - **Opt-in**: only entities annotated with `#[Auditable]` are tracked.
-- **Synchronous & safe**: diffs are computed in `onFlush`, written in `postFlush`
-  through a **dedicated entity manager** so the audited unit of work is never
-  touched and the listener never re-enters itself.
+- **Synchronous & safe**: raw field values are captured in `onFlush`, then
+  formatted and written in `postFlush` through a **dedicated entity manager**
+  so the audited unit of work is never touched and the listener never re-enters
+  itself. Deferring value formatting to `postFlush` lets association identifiers
+  resolve after Doctrine assigns generated keys in the same flush.
 - **Extensible**: value formatting and actor resolution are swappable.
 - **GDPR-aware**: ships a built-in blacklist of common secret/credential field
   names (`password`, `apiKey`, `accessToken`, …), per-field ignore via
@@ -264,7 +266,7 @@ entity's non-blacklisted state instead of field values in cleartext:
 | Mode | Config value | `diff.before` content | Use case |
 |------|--------------|------------------------|----------|
 | Minimal (default) | `minimal` | `{_snapshot_hash: "…"}` | GDPR-friendly, no cleartext duplication |
-| Full | `full` | All non-blacklisted field values | Forensic / legacy tooling |
+| Full | `full` | All non-blacklisted scalar fields **and** single-valued associations (`ManyToOne` / `OneToOne`) as `{class, id}` references | Forensic / legacy tooling |
 
 ```yaml
 doctrine_audit_trail:
@@ -408,22 +410,109 @@ pattern (1).
 
 ## Extension points
 
-### Custom value formatter
+### Value formatters
 
-The diff is produced by a chain of `ValueFormatterInterface`. The built-in
-`ScalarValueFormatter` handles scalars, `DateTimeInterface`, `BackedEnum` and
-`Stringable`. Anything else falls through unchanged — so **association values
-are best handled with a custom formatter** that extracts an identifier. Tag with
-a higher priority than the built-in formatter (which runs last):
+The diff is produced by a chain of `ValueFormatterInterface` implementations.
+The first formatter whose `supports()` returns `true` wins. Two built-in
+formatters are registered (custom formatters typically use priority `0` or higher
+so they run before them):
+
+| Formatter | Priority | Handles |
+|-----------|----------|---------|
+| `DoctrineAssociationFormatter` | `-500` | Doctrine-managed entities (`ManyToOne` / `OneToOne` values) |
+| `ScalarValueFormatter` | `-1000` | Scalars, `DateTimeInterface`, `BackedEnum`, non-managed `Stringable` |
+
+Values that no formatter supports are left unchanged in the diff (usually not
+JSON-serialisable — avoid this in production).
+
+#### Doctrine associations (`ManyToOne`, `OneToOne`)
+
+When an audited field points at another entity, the built-in
+`DoctrineAssociationFormatter` records a **stable identity reference**, not a
+snapshot of the related entity's fields:
+
+```json
+{
+  "before": { "category": { "class": "App\\Entity\\Category", "id": 3 } },
+  "after":  { "category": { "class": "App\\Entity\\Category", "id": 7 } }
+}
+```
+
+**Output shape (public API).** Association values in the diff JSON follow this
+convention — changing it in a future release would be a **breaking change**:
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `class` | `string` | Entity FQCN (`ClassMetadata::getName()`) |
+| `id` | `scalar` \| `object` \| `null` | Single-column PK (`42`); composite-key map (`{"tenant": "…", "ref": …}`) when the mapping declares multiple identifier fields — including when only some columns are set yet; or `null` when the association is unset |
+
+This answers *which entity was linked*, not *what that entity looked like at
+that moment*. To also store a human-readable label, register a custom formatter
+with a higher priority (see below).
+
+**Two-phase diff pipeline.** `ChangeSetExtractor` works in two steps: `extract*`
+methods gather raw values from the unit of work during `onFlush` (no formatter,
+no size quota, no minimal-delete hash); `format()` applies the formatter chain,
+the deletion-snapshot mode, and the size quota during `postFlush`, once Doctrine
+has assigned all generated identifiers. This is what makes a `{class, id}`
+reference reliable even when the related entity is cascade-persisted in the same
+flush.
+
+The formatter reads identifiers via `ClassMetadata::getIdentifierValues()` — it
+does **not** lazy-load associations and performs no extra SQL. Composite-key
+shape follows the mapping's identifier cardinality (`ClassMetadata::getIdentifier()`),
+not the number of values currently extracted.
+
+> **ToMany collections** (`OneToMany`, `ManyToMany`) are intentionally out of
+> scope for built-in formatting and full DELETE snapshots — they are not walked
+> or snapshotted. Register a custom formatter if you need them audited.
+
+#### Managed entities vs `Stringable`
+
+A Doctrine-managed entity that also implements `Stringable` is formatted as
+`{class, id}`, **not** as its `__toString()` output. Audit trails need stable
+identifiers; display labels can change over time, and `__toString()` may trigger
+lazy-loading or other side effects (forbidden while the unit of work is open).
+
+Non-managed `Stringable` value objects (not known to any entity manager) still
+go through `ScalarValueFormatter` and are stored as strings.
+
+#### Custom value formatter
+
+Implement `ValueFormatterInterface` and tag the service with
+`doctrine_audit_trail.value_formatter`. Priority `0` (or any value **greater
+than `-500`**) runs before the built-in association and scalar formatters:
 
 ```php
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ValueFormatterInterface;
 
-// Auto-tagged via the interface; priority 0 runs before the built-in (-1000).
+// Auto-tagged via the interface; priority 0 runs before the built-ins (-500 / -1000).
 final class MoneyFormatter implements ValueFormatterInterface
 {
     public function supports(mixed $value): bool { return $value instanceof Money; }
     public function format(mixed $value): mixed   { return $value->getAmount(); }
+}
+```
+
+To enrich an association with a display label (only when the data is already in
+memory — never lazy-load inside a formatter):
+
+```php
+final class CategoryLabelFormatter implements ValueFormatterInterface
+{
+    public function supports(mixed $value): bool
+    {
+        return $value instanceof Category;
+    }
+
+    public function format(mixed $value): array
+    {
+        return [
+            'class' => $value::class,
+            'id' => $value->getId(),
+            'label' => $value->getName(), // must not trigger DB I/O
+        ];
+    }
 }
 ```
 

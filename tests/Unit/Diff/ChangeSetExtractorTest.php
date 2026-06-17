@@ -29,6 +29,23 @@ final class ChangeSetExtractorTest extends TestCase
     }
 
     #[Test]
+    public function it_should_collect_raw_changes_without_applying_the_formatter(): void
+    {
+        $date = new \DateTimeImmutable('2026-01-02T03:04:05+00:00');
+        $changeSet = [
+            'title' => ['Old', 'New'],
+            'publishedAt' => [null, $date],
+        ];
+
+        $raw = $this->extractor()->extractChanges($changeSet, new AuditMetadata(auditable: true));
+
+        self::assertSame(
+            ['before' => ['title' => 'Old', 'publishedAt' => null], 'after' => ['title' => 'New', 'publishedAt' => $date]],
+            $raw,
+        );
+    }
+
+    #[Test]
     public function it_should_produce_a_json_serialisable_diff_for_scalars_dates_and_enums(): void
     {
         $changeSet = [
@@ -38,7 +55,11 @@ final class ChangeSetExtractorTest extends TestCase
             'views' => [1, 2],
         ];
 
-        $diff = $this->extractor()->extractChanges($changeSet, new AuditMetadata(auditable: true));
+        $extractor = $this->extractor();
+        $diff = $extractor->format(
+            $extractor->extractChanges($changeSet, new AuditMetadata(auditable: true)),
+            AuditAction::Update,
+        );
 
         self::assertSame(
             [
@@ -60,7 +81,8 @@ final class ChangeSetExtractorTest extends TestCase
 
         $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
 
-        $diff = $this->extractor()->extractChanges($changeSet, $metadata);
+        $extractor = $this->extractor();
+        $diff = $extractor->format($extractor->extractChanges($changeSet, $metadata), AuditAction::Update);
 
         self::assertArrayHasKey('title', $diff['after']);
         self::assertArrayNotHasKey('password', $diff['after']);
@@ -77,7 +99,8 @@ final class ChangeSetExtractorTest extends TestCase
             'apiKey' => ['key-a', 'key-b'],
         ];
 
-        $diff = $this->extractor()->extractChanges($changeSet, $metadata);
+        $extractor = $this->extractor();
+        $diff = $extractor->format($extractor->extractChanges($changeSet, $metadata), AuditAction::Update);
 
         self::assertArrayHasKey('title', $diff['after']);
         self::assertArrayNotHasKey('apiKey', $diff['after']);
@@ -91,7 +114,8 @@ final class ChangeSetExtractorTest extends TestCase
             'payload' => ['', str_repeat('A', 2000)],
         ];
 
-        $diff = $this->extractor(maxSizeBytes: 256)->extractChanges($changeSet, new AuditMetadata(auditable: true));
+        $extractor = $this->extractor(maxSizeBytes: 256);
+        $diff = $extractor->format($extractor->extractChanges($changeSet, new AuditMetadata(auditable: true)), AuditAction::Update);
 
         self::assertSame([], $diff['before']);
         self::assertTrue($diff['after']['_truncated']);
@@ -106,7 +130,8 @@ final class ChangeSetExtractorTest extends TestCase
             'ratio' => [1.0, \NAN],
         ];
 
-        $diff = $this->extractor()->extractChanges($changeSet, new AuditMetadata(auditable: true));
+        $extractor = $this->extractor();
+        $diff = $extractor->format($extractor->extractChanges($changeSet, new AuditMetadata(auditable: true)), AuditAction::Update);
 
         self::assertSame([], $diff['before']);
         self::assertTrue($diff['after']['_truncated']);
@@ -120,7 +145,8 @@ final class ChangeSetExtractorTest extends TestCase
             'payload' => ['', str_repeat('A', 2000)],
         ];
 
-        $diff = $this->extractor(maxSizeBytes: ChangeSetExtractor::NO_SIZE_LIMIT)->extractChanges($changeSet, new AuditMetadata(auditable: true));
+        $extractor = $this->extractor(maxSizeBytes: ChangeSetExtractor::NO_SIZE_LIMIT);
+        $diff = $extractor->format($extractor->extractChanges($changeSet, new AuditMetadata(auditable: true)), AuditAction::Update);
 
         self::assertArrayHasKey('payload', $diff['after']);
         self::assertArrayNotHasKey('_truncated', $diff['after']);
@@ -131,9 +157,10 @@ final class ChangeSetExtractorTest extends TestCase
     {
         $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
 
-        $diff = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Full)->extractDeletion(
-            ['title' => 'Gone', 'password' => 'secret'],
-            $metadata,
+        $extractor = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Full);
+        $diff = $extractor->format(
+            $extractor->extractDeletion(['title' => 'Gone', 'password' => 'secret'], $metadata),
+            AuditAction::Delete,
         );
 
         self::assertSame(['before' => ['title' => 'Gone'], 'after' => []], $diff);
@@ -144,9 +171,10 @@ final class ChangeSetExtractorTest extends TestCase
     {
         $metadata = new AuditMetadata(auditable: true, ignoredFields: ['password' => true]);
 
-        $diff = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
-            ['title' => 'Gone', 'password' => 'secret'],
-            $metadata,
+        $extractor = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal);
+        $diff = $extractor->format(
+            $extractor->extractDeletion(['title' => 'Gone', 'password' => 'secret'], $metadata),
+            AuditAction::Delete,
         );
 
         self::assertSame([], $diff['after']);
@@ -159,9 +187,10 @@ final class ChangeSetExtractorTest extends TestCase
     #[Test]
     public function it_should_emit_a_truncation_marker_when_a_deletion_snapshot_cannot_be_encoded(): void
     {
-        $diff = $this->extractor()->extractDeletion(
-            ['ratio' => \NAN],
-            new AuditMetadata(auditable: true),
+        $extractor = $this->extractor();
+        $diff = $extractor->format(
+            $extractor->extractDeletion(['ratio' => \NAN], new AuditMetadata(auditable: true)),
+            AuditAction::Delete,
         );
 
         self::assertSame([], $diff['before']);
@@ -174,13 +203,14 @@ final class ChangeSetExtractorTest extends TestCase
     {
         $metadata = new AuditMetadata(auditable: true);
 
-        $diffA = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
-            ['title' => 'Gone', 'price' => 100],
-            $metadata,
+        $extractor = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal);
+        $diffA = $extractor->format(
+            $extractor->extractDeletion(['title' => 'Gone', 'price' => 100], $metadata),
+            AuditAction::Delete,
         );
-        $diffB = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
-            ['price' => 100, 'title' => 'Gone'],
-            $metadata,
+        $diffB = $extractor->format(
+            $extractor->extractDeletion(['price' => 100, 'title' => 'Gone'], $metadata),
+            AuditAction::Delete,
         );
 
         self::assertSame($diffA['before']['_snapshot_hash'], $diffB['before']['_snapshot_hash']);
@@ -191,13 +221,14 @@ final class ChangeSetExtractorTest extends TestCase
     {
         $metadata = new AuditMetadata(auditable: true, ignoredFields: ['iban' => true]);
 
-        $diffWithSecret = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
-            ['title' => 'Gone', 'iban' => 'FR7630006000011234567890189'],
-            $metadata,
+        $extractor = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal);
+        $diffWithSecret = $extractor->format(
+            $extractor->extractDeletion(['title' => 'Gone', 'iban' => 'FR7630006000011234567890189'], $metadata),
+            AuditAction::Delete,
         );
-        $diffWithoutSecret = $this->extractor(deleteSnapshotMode: DeleteSnapshotMode::Minimal)->extractDeletion(
-            ['title' => 'Gone'],
-            $metadata,
+        $diffWithoutSecret = $extractor->format(
+            $extractor->extractDeletion(['title' => 'Gone'], $metadata),
+            AuditAction::Delete,
         );
 
         self::assertSame($diffWithSecret['before']['_snapshot_hash'], $diffWithoutSecret['before']['_snapshot_hash']);

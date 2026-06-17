@@ -27,4 +27,8 @@ class AuditedProduct
     #[ORM\Column(type: 'string')]
     #[AuditIgnore]
     public string $secret = '';
+
+    #[ORM\ManyToOne(targetEntity: PlainCategory::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    public ?PlainCategory $category = null;
 }

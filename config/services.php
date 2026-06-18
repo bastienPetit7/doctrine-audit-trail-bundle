@@ -7,7 +7,9 @@ use Metadev\DoctrineAuditTrailBundle\Command\ActorAnonymiseAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Command\PruneAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Command\VerifyAuditTrailCommand;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DeleteSnapshotPolicy;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffSizeGuard;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\DoctrineAssociationFormatter;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTableNameListener;
@@ -57,13 +59,22 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(AuditUserResolverInterface::class, DefaultAuditUserResolver::class);
 
     $services->set(DiffFormatterRegistry::class);
-    $services->set(ChangeSetExtractor::class)
+
+    $services->set(DiffSizeGuard::class)
+        ->args([param('doctrine_audit_trail.diff.max_size_bytes')]);
+
+    $services->set(DeleteSnapshotPolicy::class)
         ->args([
-            service(DiffFormatterRegistry::class),
-            param('doctrine_audit_trail.diff.max_size_bytes'),
             inline_service(DeleteSnapshotMode::class)
                 ->factory([DeleteSnapshotMode::class, 'from'])
                 ->args([param('doctrine_audit_trail.diff.delete_snapshot_mode')]),
+        ]);
+
+    $services->set(ChangeSetExtractor::class)
+        ->args([
+            service(DiffFormatterRegistry::class),
+            service(DiffSizeGuard::class),
+            service(DeleteSnapshotPolicy::class),
         ]);
 
     $services->set(DoctrineAssociationFormatter::class)
@@ -86,7 +97,8 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(AuditTrailListener::class)
         ->arg('$auditEntityManager', service('doctrine.orm.audit_entity_manager'))
-        ->arg('$enabled', param('doctrine_audit_trail.enabled'));
+        ->arg('$enabled', param('doctrine_audit_trail.enabled'))
+        ->arg('$trackCollections', param('doctrine_audit_trail.diff.track_collections'));
 
     $services->set(AuditTableNameListener::class)
         ->args([param('doctrine_audit_trail.storage.table_name')]);

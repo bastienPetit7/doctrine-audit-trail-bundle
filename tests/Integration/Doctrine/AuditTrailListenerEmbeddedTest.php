@@ -8,7 +8,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DeleteSnapshotPolicy;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffSizeGuard;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\DoctrineAssociationFormatter;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Doctrine\EventListener\AuditTrailListener;
@@ -181,7 +183,8 @@ final class AuditTrailListenerEmbeddedTest extends TestCase
                     new DoctrineAssociationFormatter(new StubManagerRegistry($appEntityManager)),
                     new ScalarValueFormatter(),
                 ]),
-                deleteSnapshotMode: $deleteSnapshotMode,
+                new DiffSizeGuard(),
+                new DeleteSnapshotPolicy($deleteSnapshotMode),
             ),
             new AuditTrailEntryFactory(),
             new DoctrineAuditPersister($auditEntityManager),

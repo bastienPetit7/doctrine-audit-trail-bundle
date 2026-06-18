@@ -15,9 +15,17 @@ final class PendingAudit
     public function __construct(
         public readonly object $entity,
         public readonly AuditAction $action,
-        public readonly array $diff,
+        public array $diff,
         public readonly ?string $entityLabel = null,
         public ?array $identifier = null,
     ) {
+    }
+
+    /**
+     * @param array{_collection: true, added: list<object>, removed: list<object>} $delta
+     */
+    public function mergeCollectionDelta(string $field, array $delta): void
+    {
+        $this->diff['after'][$field] = $delta;
     }
 }

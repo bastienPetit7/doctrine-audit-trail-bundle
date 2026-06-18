@@ -10,6 +10,8 @@ use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Events;
+use Doctrine\ORM\PersistentCollection;
+use Doctrine\ORM\UnitOfWork;
 use Doctrine\Persistence\ObjectManager;
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAudit;
 use Metadev\DoctrineAuditTrailBundle\Buffer\PendingAuditBuffer;
@@ -34,6 +36,7 @@ final class AuditTrailListener
         private readonly PendingAuditBuffer $buffer,
         private readonly EntityManagerInterface $auditEntityManager,
         private readonly bool $enabled,
+        private readonly bool $trackCollections = false,
     ) {
     }
 
@@ -46,6 +49,17 @@ final class AuditTrailListener
 
         $unitOfWork = $entityManager->getUnitOfWork();
 
+        $this->collectInsertions($unitOfWork);
+        $this->collectUpdates($entityManager, $unitOfWork);
+        $this->collectDeletions($entityManager, $unitOfWork);
+
+        if ($this->trackCollections) {
+            $this->collectCollectionChanges($entityManager, $unitOfWork);
+        }
+    }
+
+    private function collectInsertions(UnitOfWork $unitOfWork): void
+    {
         foreach ($unitOfWork->getScheduledEntityInsertions() as $entity) {
             $metadata = $this->metadataFactory->getMetadata($entity);
             if (!$metadata->auditable) {
@@ -55,7 +69,10 @@ final class AuditTrailListener
             $diff = $this->changeSetExtractor->extractChanges($unitOfWork->getEntityChangeSet($entity), $metadata);
             $this->buffer->add(new PendingAudit($entity, AuditAction::Create, $diff, entityLabel: $metadata->label));
         }
+    }
 
+    private function collectUpdates(EntityManagerInterface $entityManager, UnitOfWork $unitOfWork): void
+    {
         foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
             $metadata = $this->metadataFactory->getMetadata($entity);
             if (!$metadata->auditable) {
@@ -63,6 +80,11 @@ final class AuditTrailListener
             }
 
             $diff = $this->changeSetExtractor->extractChanges($unitOfWork->getEntityChangeSet($entity), $metadata);
+
+            if ([] === $diff['before'] && [] === $diff['after']) {
+                continue;
+            }
+
             $this->buffer->add(new PendingAudit(
                 $entity,
                 AuditAction::Update,
@@ -71,7 +93,10 @@ final class AuditTrailListener
                 identifier: $this->identifierOf($entityManager, $entity),
             ));
         }
+    }
 
+    private function collectDeletions(EntityManagerInterface $entityManager, UnitOfWork $unitOfWork): void
+    {
         foreach ($unitOfWork->getScheduledEntityDeletions() as $entity) {
             $metadata = $this->metadataFactory->getMetadata($entity);
             if (!$metadata->auditable) {
@@ -87,6 +112,72 @@ final class AuditTrailListener
                 identifier: $this->identifierOf($entityManager, $entity),
             ));
         }
+    }
+
+    private function collectCollectionChanges(EntityManagerInterface $entityManager, UnitOfWork $unitOfWork): void
+    {
+        foreach ($unitOfWork->getScheduledCollectionUpdates() as $collection) {
+            $this->bufferCollectionDelta(
+                $entityManager,
+                $collection,
+                $this->changeSetExtractor->extractCollection($collection),
+            );
+        }
+
+        foreach ($unitOfWork->getScheduledCollectionDeletions() as $collection) {
+            $this->bufferCollectionDelta(
+                $entityManager,
+                $collection,
+                $this->changeSetExtractor->extractClearedCollection($collection),
+            );
+        }
+    }
+
+    /**
+     * @param array{_collection: true, added: list<object>, removed: list<object>} $delta
+     */
+    private function bufferCollectionDelta(
+        EntityManagerInterface $entityManager,
+        PersistentCollection $collection,
+        array $delta,
+    ): void {
+        if ([] === $delta['added'] && [] === $delta['removed']) {
+            return;
+        }
+
+        $owner = $collection->getOwner();
+        if (null === $owner) {
+            return;
+        }
+
+        $metadata = $this->metadataFactory->getMetadata($owner);
+        if (!$metadata->auditable) {
+            return;
+        }
+
+        $field = $collection->getMapping()['fieldName'] ?? null;
+        if (!\is_string($field) || $metadata->isFieldIgnored($field)) {
+            return;
+        }
+
+        $pending = $this->buffer->get($owner);
+        if (null !== $pending) {
+            if (AuditAction::Delete === $pending->action) {
+                return;
+            }
+
+            $pending->mergeCollectionDelta($field, $delta);
+
+            return;
+        }
+
+        $this->buffer->add(new PendingAudit(
+            $owner,
+            AuditAction::Update,
+            ['before' => [], 'after' => [$field => $delta]],
+            entityLabel: $metadata->label,
+            identifier: $this->identifierOf($entityManager, $owner),
+        ));
     }
 
     public function postPersist(PostPersistEventArgs $args): void

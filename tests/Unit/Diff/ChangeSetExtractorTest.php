@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Metadev\DoctrineAuditTrailBundle\Tests\Unit\Diff;
 
 use Metadev\DoctrineAuditTrailBundle\Diff\ChangeSetExtractor;
+use Metadev\DoctrineAuditTrailBundle\Diff\DeleteSnapshotPolicy;
 use Metadev\DoctrineAuditTrailBundle\Diff\DiffFormatterRegistry;
+use Metadev\DoctrineAuditTrailBundle\Diff\DiffSizeGuard;
 use Metadev\DoctrineAuditTrailBundle\Diff\Formatter\ScalarValueFormatter;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
 use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
@@ -23,8 +25,8 @@ final class ChangeSetExtractorTest extends TestCase
     ): ChangeSetExtractor {
         return new ChangeSetExtractor(
             new DiffFormatterRegistry([new ScalarValueFormatter()]),
-            $maxSizeBytes,
-            $deleteSnapshotMode,
+            new DiffSizeGuard($maxSizeBytes),
+            new DeleteSnapshotPolicy($deleteSnapshotMode),
         );
     }
 
@@ -145,7 +147,7 @@ final class ChangeSetExtractorTest extends TestCase
             'payload' => ['', str_repeat('A', 2000)],
         ];
 
-        $extractor = $this->extractor(maxSizeBytes: ChangeSetExtractor::NO_SIZE_LIMIT);
+        $extractor = $this->extractor(maxSizeBytes: DiffSizeGuard::NO_SIZE_LIMIT);
         $diff = $extractor->format($extractor->extractChanges($changeSet, new AuditMetadata(auditable: true)), AuditAction::Update);
 
         self::assertArrayHasKey('payload', $diff['after']);
@@ -214,6 +216,33 @@ final class ChangeSetExtractorTest extends TestCase
         );
 
         self::assertSame($diffA['before']['_snapshot_hash'], $diffB['before']['_snapshot_hash']);
+    }
+
+    #[Test]
+    public function it_should_apply_the_formatter_chain_to_each_item_of_a_collection_delta(): void
+    {
+        $extractor = $this->extractor();
+        $raw = [
+            'before' => [],
+            'after' => [
+                'tags' => [
+                    ChangeSetExtractor::COLLECTION_MARKER => true,
+                    'added' => ['new-a', 'new-b'],
+                    'removed' => ['old-c'],
+                ],
+            ],
+        ];
+
+        $diff = $extractor->format($raw, AuditAction::Update);
+
+        self::assertSame(
+            [
+                ChangeSetExtractor::COLLECTION_MARKER => true,
+                'added' => ['new-a', 'new-b'],
+                'removed' => ['old-c'],
+            ],
+            $diff['after']['tags'],
+        );
     }
 
     #[Test]

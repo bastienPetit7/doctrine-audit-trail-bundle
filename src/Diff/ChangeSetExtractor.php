@@ -6,18 +6,16 @@ namespace Metadev\DoctrineAuditTrailBundle\Diff;
 
 use Doctrine\ORM\PersistentCollection;
 use Metadev\DoctrineAuditTrailBundle\Enum\AuditAction;
-use Metadev\DoctrineAuditTrailBundle\Enum\DeleteSnapshotMode;
 use Metadev\DoctrineAuditTrailBundle\Metadata\AuditMetadata;
-use Metadev\DoctrineAuditTrailBundle\Util\CanonicalJson;
 
 final class ChangeSetExtractor
 {
-    public const NO_SIZE_LIMIT = 0;
+    public const COLLECTION_MARKER = '_collection';
 
     public function __construct(
         private readonly DiffFormatterRegistry $formatters,
-        private readonly int $maxSizeBytes = 65536,
-        private readonly DeleteSnapshotMode $deleteSnapshotMode = DeleteSnapshotMode::Minimal,
+        private readonly DiffSizeGuard $sizeGuard,
+        private readonly DeleteSnapshotPolicy $deleteSnapshotPolicy,
     ) {
     }
 
@@ -49,6 +47,30 @@ final class ChangeSetExtractor
     }
 
     /**
+     * @return array{_collection: true, added: list<object>, removed: list<object>}
+     */
+    public function extractCollection(PersistentCollection $collection): array
+    {
+        return [
+            self::COLLECTION_MARKER => true,
+            'added' => array_values($collection->getInsertDiff()),
+            'removed' => array_values($collection->getDeleteDiff()),
+        ];
+    }
+
+    /**
+     * @return array{_collection: true, added: list<object>, removed: list<object>}
+     */
+    public function extractClearedCollection(PersistentCollection $collection): array
+    {
+        return [
+            self::COLLECTION_MARKER => true,
+            'added' => [],
+            'removed' => array_values($collection->getSnapshot()),
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $fieldValues
      *
      * @return array{before: array<string, mixed>, after: array<string, mixed>}
@@ -75,77 +97,43 @@ final class ChangeSetExtractor
      */
     public function format(array $raw, AuditAction $action): array
     {
-        $before = [];
-        foreach ($raw['before'] as $field => $value) {
-            $before[$field] = $this->formatters->format($value);
-        }
-
-        $after = [];
-        foreach ($raw['after'] as $field => $value) {
-            $after[$field] = $this->formatters->format($value);
-        }
-
-        if (AuditAction::Delete === $action && DeleteSnapshotMode::Minimal === $this->deleteSnapshotMode) {
-            return $this->minimalDeletionSnapshot($before);
-        }
-
-        return $this->enforceSizeQuota(['before' => $before, 'after' => $after]);
-    }
-
-    /**
-     * @param array<string, mixed> $before
-     *
-     * @return array{before: array<string, mixed>, after: array<string, mixed>}
-     */
-    private function minimalDeletionSnapshot(array $before): array
-    {
-        try {
-            $canonical = CanonicalJson::encode($before);
-        } catch (\JsonException) {
-            return $this->truncationMarker('encoding_failed');
-        }
-
-        return [
-            'before' => ['_snapshot_hash' => hash('sha256', $canonical)],
-            'after' => [],
+        $diff = [
+            'before' => $this->formatSide($raw['before']),
+            'after' => $this->formatSide($raw['after']),
         ];
+
+        if (AuditAction::Delete === $action) {
+            $diff = $this->deleteSnapshotPolicy->apply($diff);
+        }
+
+        return $this->sizeGuard->apply($diff);
     }
 
     /**
-     * @param array{before: array<string, mixed>, after: array<string, mixed>} $diff
+     * @param array<string, mixed> $side
      *
-     * @return array{before: array<string, mixed>, after: array<string, mixed>}
+     * @return array<string, mixed>
      */
-    private function enforceSizeQuota(array $diff): array
+    private function formatSide(array $side): array
     {
-        if (self::NO_SIZE_LIMIT === $this->maxSizeBytes) {
-            return $diff;
+        $formatted = [];
+        foreach ($side as $field => $value) {
+            $formatted[$field] = $this->formatField($value);
         }
 
-        try {
-            $encoded = json_encode($diff, \JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            return $this->truncationMarker('encoding_failed');
-        }
-
-        $size = \strlen($encoded);
-        if ($size <= $this->maxSizeBytes) {
-            return $diff;
-        }
-
-        return $this->truncationMarker('size_exceeded', $size);
+        return $formatted;
     }
 
-    /**
-     * @return array{before: array<string, mixed>, after: array<string, mixed>}
-     */
-    private function truncationMarker(string $reason, ?int $originalSize = null): array
+    private function formatField(mixed $value): mixed
     {
-        $after = ['_truncated' => true, '_reason' => $reason];
-        if (null !== $originalSize) {
-            $after['_originalSize'] = $originalSize;
+        if (\is_array($value) && true === ($value[self::COLLECTION_MARKER] ?? false)) {
+            return [
+                self::COLLECTION_MARKER => true,
+                'added' => array_map(fn (mixed $item): mixed => $this->formatters->format($item), $value['added'] ?? []),
+                'removed' => array_map(fn (mixed $item): mixed => $this->formatters->format($item), $value['removed'] ?? []),
+            ];
         }
 
-        return ['before' => [], 'after' => $after];
+        return $this->formatters->format($value);
     }
 }

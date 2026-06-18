@@ -154,6 +154,7 @@ doctrine_audit_trail:
     diff:
         max_size_bytes: 65536           # cap JSON diff size (0 = disabled)
         delete_snapshot_mode: minimal   # minimal (hash) | full (cleartext fields)
+        track_collections: false        # audit OneToMany/ManyToMany changes as added/removed deltas
 
     actor:
         fallback_label: cli             # label outside an HTTP request
@@ -501,9 +502,23 @@ does **not** lazy-load associations and performs no extra SQL. Composite-key
 shape follows the mapping's identifier cardinality (`ClassMetadata::getIdentifier()`),
 not the number of values currently extracted.
 
-> **ToMany collections** (`OneToMany`, `ManyToMany`) are intentionally out of
-> scope for built-in formatting and full DELETE snapshots — they are not walked
-> or snapshotted. Register a custom formatter if you need them audited.
+> **ToMany collections** (`OneToMany`, `ManyToMany`) are off by default. Enable
+> tracking via `diff.track_collections: true`; the listener then reads
+> `UnitOfWork::getScheduledCollectionUpdates()` / `getScheduledCollectionDeletions()`
+> and emits an `Update` entry on the owner with an added/removed delta:
+>
+> ```yaml
+> doctrine_audit_trail:
+>     diff:
+>         track_collections: true
+> ```
+>
+> The recorded shape is `{_collection: true, added: [...], removed: [...]}`
+> placed under `after` in the diff. Items go through the same formatter chain
+> as scalars (so a managed entity becomes `{class, id}`). Per-collection opt-out
+> is the existing `#[AuditIgnore]` attribute on the property. Full collection
+> snapshots — neither on DELETE nor on creation — are still out of scope (only
+> deltas are recorded).
 
 #### Managed entities vs `Stringable`
 

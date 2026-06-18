@@ -25,6 +25,26 @@ here with a migration note.
   deny-list (`secret`, `apiKey`, `token`, …) matches against each segment of the
   path — so a sub-field named `secret` on a non-ignored embeddable is still
   filtered. Documented and covered by integration tests.
+- **`diff.track_collections` configuration** (default `false`) — opt-in audit of
+  ToMany association changes (`OneToMany` / `ManyToMany`). When enabled, the
+  listener reads `UnitOfWork::getScheduledCollectionUpdates()` /
+  `getScheduledCollectionDeletions()` and emits an `Update` entry on the owner
+  with the recorded shape
+  `{_collection: true, added: [...], removed: [...]}` placed under `after` in
+  the diff. Items go through the same formatter chain as scalars, so managed
+  entities become `{class, id}` references. Per-collection opt-out is the
+  existing `#[AuditIgnore]` attribute on the property; whole-collection
+  snapshots remain out of scope (deltas only). Off by default for back-compat.
+- **`DiffSizeGuard` service** — extracted from `ChangeSetExtractor`. Encapsulates
+  the diff size quota and JSON-encoding fallback, producing a canonical
+  truncation marker on overflow / encoding failure.
+- **`DeleteSnapshotPolicy` service** — extracted from `ChangeSetExtractor`.
+  Encapsulates the `delete_snapshot_mode` decision (minimal hash vs full
+  passthrough) so the data-minimisation choice is isolated, testable in
+  isolation, and extensible.
+- **`TruncationMarker` value class** — single source of truth for the
+  `{_truncated: true, _reason, _originalSize?}` payload shape, shared between
+  `DiffSizeGuard` and `DeleteSnapshotPolicy`.
 
 ### Changed
 
@@ -36,7 +56,29 @@ here with a migration note.
   audit rows.
 - **DELETE snapshots (`delete_snapshot_mode: full`)** now include single-valued
   associations (`ManyToOne` / `OneToOne`) as `{class, id}` references alongside
-  scalar columns. `OneToMany` / `ManyToMany` collections remain out of scope.
+  scalar columns. `OneToMany` / `ManyToMany` collections follow the
+  `diff.track_collections` flag (deltas, not full snapshots).
+- **Internal: `ChangeSetExtractor` constructor signature.** Now expects
+  `DiffFormatterRegistry`, `DiffSizeGuard`, `DeleteSnapshotPolicy` instead of
+  `DiffFormatterRegistry`, `int $maxSizeBytes`, `DeleteSnapshotMode`. Public
+  YAML configuration (`diff.max_size_bytes`, `diff.delete_snapshot_mode`) is
+  unchanged; only impacts integrators that wire the extractor manually
+  (typically tests). `ChangeSetExtractor::NO_SIZE_LIMIT` moved to
+  `DiffSizeGuard::NO_SIZE_LIMIT`.
+- **Internal: `AuditTrailListener::onFlush()` refactored** into four
+  responsibility-aligned private methods (`collectInsertions`,
+  `collectUpdates`, `collectDeletions`, `collectCollectionChanges`).
+  No behaviour change beyond the fix below.
+
+### Fixed
+
+- **Empty `Update` audit rows on ToMany collection changes.** Doctrine
+  schedules the owner of a changed `ManyToMany` / `OneToMany` collection in
+  `getScheduledEntityUpdates()` even when no scalar/single-valued field
+  changed. The listener now skips updates with a fully empty diff, so a pure
+  collection mutation never produces a noisy empty audit entry; when
+  `diff.track_collections: true` is enabled, the same mutation is captured as
+  a non-empty delta on the owner instead.
 - **BC (minor): association diff shape on new rows.** Audited association
   fields now persist as `{class, id}` (or a composite-key map) instead of being
   left as non-JSON-serialisable objects, truncated (`_truncated:

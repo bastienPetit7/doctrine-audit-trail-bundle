@@ -78,6 +78,10 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                             ->values(['minimal', 'full'])
                             ->defaultValue('minimal')
                         ->end()
+                        ->booleanNode('track_collections')
+                            ->info('When true, ToMany association changes (OneToMany/ManyToMany) emit an Update audit entry on the owner with an added/removed delta. Off by default for back-compat: only scalars and single-valued associations are tracked.')
+                            ->defaultFalse()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('actor')
@@ -159,6 +163,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
         $builder->setParameter('doctrine_audit_trail.force_audit_fields', $config['force_audit_fields'] ?? []);
         $builder->setParameter('doctrine_audit_trail.diff.max_size_bytes', $config['diff']['max_size_bytes'] ?? 65536);
         $builder->setParameter('doctrine_audit_trail.diff.delete_snapshot_mode', $config['diff']['delete_snapshot_mode'] ?? 'minimal');
+        $builder->setParameter('doctrine_audit_trail.diff.track_collections', $config['diff']['track_collections'] ?? false);
         $builder->setParameter('doctrine_audit_trail.actor.fallback_label', $config['actor']['fallback_label'] ?? 'cli');
         $builder->setParameter('doctrine_audit_trail.retention.default_age', $config['retention']['default_age'] ?? null);
 

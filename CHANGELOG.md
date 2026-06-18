@@ -12,6 +12,8 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-18
+
 ### Added
 
 - **`DoctrineAssociationFormatter`** (priority `-500`) — built-in formatter for
@@ -19,12 +21,14 @@ here with a migration note.
   `{class, id}` identity reference instead of leaving the value unchanged or
   relying on `__toString()`. Composite identifiers are emitted as a
   `{column: value}` map when the mapping declares multiple identifier fields.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **Embeddable (`#[ORM\Embedded]`) support.** Sub-fields are recorded with their
   Doctrine dotted path (e.g. `price.amount`, `price.currency`). `#[AuditIgnore]`
   placed on the embedded property now hides every sub-field, and the built-in
   deny-list (`secret`, `apiKey`, `token`, …) matches against each segment of the
   path — so a sub-field named `secret` on a non-ignored embeddable is still
   filtered. Documented and covered by integration tests.
+  ([c840d7f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/c840d7f))
 - **`diff.track_collections` configuration** (default `false`) — opt-in audit of
   ToMany association changes (`OneToMany` / `ManyToMany`). When enabled, the
   listener reads `UnitOfWork::getScheduledCollectionUpdates()` /
@@ -35,16 +39,20 @@ here with a migration note.
   entities become `{class, id}` references. Per-collection opt-out is the
   existing `#[AuditIgnore]` attribute on the property; whole-collection
   snapshots remain out of scope (deltas only). Off by default for back-compat.
+  ([7c6c44f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/7c6c44f))
 - **`DiffSizeGuard` service** — extracted from `ChangeSetExtractor`. Encapsulates
   the diff size quota and JSON-encoding fallback, producing a canonical
   truncation marker on overflow / encoding failure.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **`DeleteSnapshotPolicy` service** — extracted from `ChangeSetExtractor`.
   Encapsulates the `delete_snapshot_mode` decision (minimal hash vs full
   passthrough) so the data-minimisation choice is isolated, testable in
   isolation, and extensible.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **`TruncationMarker` value class** — single source of truth for the
   `{_truncated: true, _reason, _originalSize?}` payload shape, shared between
   `DiffSizeGuard` and `DeleteSnapshotPolicy`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 
 ### Changed
 
@@ -54,10 +62,20 @@ here with a migration note.
   the size quota during `postFlush`, after Doctrine has assigned generated
   primary keys. `AuditTrailListener` calls `format()` just before persisting
   audit rows.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **DELETE snapshots (`delete_snapshot_mode: full`)** now include single-valued
   associations (`ManyToOne` / `OneToOne`) as `{class, id}` references alongside
   scalar columns. `OneToMany` / `ManyToMany` collections follow the
   `diff.track_collections` flag (deltas, not full snapshots).
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
+- **BC (minor): association diff shape on new rows.** Audited association
+  fields now persist as `{class, id}` (or a composite-key map) instead of being
+  left as non-JSON-serialisable objects, truncated (`_truncated:
+  encoding_failed`), or rendered via `__toString()`. Consumers parsing
+  `diff.before` / `diff.after` should branch on this shape. Historical rows
+  written before this release may still use the older representations for the
+  same field.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **Internal: `ChangeSetExtractor` constructor signature.** Now expects
   `DiffFormatterRegistry`, `DiffSizeGuard`, `DeleteSnapshotPolicy` instead of
   `DiffFormatterRegistry`, `int $maxSizeBytes`, `DeleteSnapshotMode`. Public
@@ -65,10 +83,18 @@ here with a migration note.
   unchanged; only impacts integrators that wire the extractor manually
   (typically tests). `ChangeSetExtractor::NO_SIZE_LIMIT` moved to
   `DiffSizeGuard::NO_SIZE_LIMIT`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **Internal: `AuditTrailListener::onFlush()` refactored** into four
   responsibility-aligned private methods (`collectInsertions`,
   `collectUpdates`, `collectDeletions`, `collectCollectionChanges`).
-  No behaviour change beyond the fix below.
+  No behaviour change beyond the fixes below.
+  ([7c6c44f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/7c6c44f))
+- **Documentation:** README updated for the association formatter, embeddables,
+  collection tracking, the two-phase pipeline, full DELETE snapshots, and the
+  `{class, id}` public API contract.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4),
+  [c840d7f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/c840d7f),
+  [7c6c44f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/7c6c44f))
 
 ### Fixed
 
@@ -79,31 +105,24 @@ here with a migration note.
   collection mutation never produces a noisy empty audit entry; when
   `diff.track_collections: true` is enabled, the same mutation is captured as
   a non-empty delta on the owner instead.
-- **BC (minor): association diff shape on new rows.** Audited association
-  fields now persist as `{class, id}` (or a composite-key map) instead of being
-  left as non-JSON-serialisable objects, truncated (`_truncated:
-  encoding_failed`), or rendered via `__toString()`. Consumers parsing
-  `diff.before` / `diff.after` should branch on this shape. Historical rows
-  written before this release may still use the older representations for the
-  same field.
-- **Managed `Stringable` entities** linked through an association are formatted
-  as `{class, id}`, not as their `__toString()` output — consistent with the
-  association formatter taking precedence over `ScalarValueFormatter`.
-- **Documentation:** README updated for the association formatter, the two-phase
-  pipeline, full DELETE snapshots, and the `{class, id}` public API contract.
-
-### Fixed
-
+  ([7c6c44f](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/7c6c44f))
 - **DELETE + full snapshot omitted associations.** `fieldValuesOf()` collected
   only scalar mapped fields (`getFieldNames()`), so `DoctrineAssociationFormatter`
   never ran on the delete path even when `delete_snapshot_mode: full`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **Cascade-persist in the same flush recorded `{class, id: null}`.** Association
   identifiers are now resolved at `postFlush` time, matching the existing
   back-fill behaviour for the audited entity's own primary key on `Create`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 - **Composite-key associations collapsed to a bare scalar** when only one
   identifier column was populated at format time. Shape now follows the mapping's
   identifier cardinality (`ClassMetadata::getIdentifier()`), not the number of
   values returned by `getIdentifierValues()`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
+- **Managed `Stringable` entities** linked through an association are formatted
+  as `{class, id}`, not as their `__toString()` output — consistent with the
+  association formatter taking precedence over `ScalarValueFormatter`.
+  ([18392c4](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/18392c4))
 
 ## [0.5.0] - 2026-06-16
 
@@ -374,7 +393,8 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.2.0...v0.3.0

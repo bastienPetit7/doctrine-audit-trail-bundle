@@ -12,6 +12,22 @@ here with a migration note.
 
 ## [Unreleased]
 
+### Changed
+
+- **Schema is host-side, not bundle-side.** The bundle ships the
+  `AuditTrailEntry` Doctrine mapping (auto-registered on the audit entity
+  manager via `prependExtension()`) but no longer attempts to ship a
+  versioned migration class. Run `make:migration --em=audit` to generate a
+  migration in your own `DoctrineMigrations` namespace — it respects the
+  configured `doctrine_audit_trail.storage.table_name`, your target DB
+  platform, and your project's existing migration history. Users without
+  `doctrine/migrations` can produce the equivalent DDL with
+  `doctrine:schema:create --em=audit --dump-sql`. See
+  [`docs/migrations.md`](docs/migrations.md) for the bootstrap procedure
+  and the upgrade path for deployments that previously used
+  `doctrine:schema:update`. `doctrine/migrations` is no longer pulled in as
+  a `require-dev`; `symfony/maker-bundle` replaces it in `suggest`.
+
 ## [0.6.0] - 2026-06-18
 
 ### Added

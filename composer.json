@@ -45,7 +45,7 @@
         "symfony/security-core": "To attribute audit entries to the authenticated user",
         "symfony/http-foundation": "To capture the client IP address and user agent",
         "symfony/messenger": "To offload audit persistence with persistence.mode: async",
-        "doctrine/migrations": "To version the audit schema, including the optional integrity 'signature' column"
+        "symfony/maker-bundle": "To generate the audit table migration with `make:migration --em=audit`"
     },
     "autoload": {
         "psr-4": {

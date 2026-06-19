@@ -113,9 +113,21 @@ doctrine:
 Create the table:
 
 ```bash
-php bin/console doctrine:schema:update --em=audit --force   # demo
-# in production: generate a dedicated migration instead
+# Recommended — generate a migration in your project's namespace:
+php bin/console make:migration --em=audit
+php bin/console doctrine:migrations:migrate --em=audit
+
+# Quick start for demos / dev:
+php bin/console doctrine:schema:update --em=audit --force
 ```
+
+The bundle ships the `AuditTrailEntry` Doctrine mapping but **no migration
+class** — `make:migration` picks up the mapping from the audit entity
+manager (the bundle wires it via `prependExtension()`) and emits a
+migration that honours your configured table name and target DB platform.
+See [`docs/migrations.md`](docs/migrations.md) for the alternatives when
+you don't use `doctrine/migrations` and the bootstrap procedure for
+deployments that previously used `doctrine:schema:update`.
 
 ### Tamper-evidence & hardening
 

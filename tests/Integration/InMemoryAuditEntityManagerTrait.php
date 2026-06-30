@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Metadev\DoctrineAuditTrailBundle\Tests\Integration;
 
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\UnderscoreNamingStrategy;
 use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\Tools\SchemaTool;
 use Metadev\DoctrineAuditTrailBundle\Entity\AuditTrailEntry;
@@ -30,15 +32,43 @@ trait InMemoryAuditEntityManagerTrait
             $config->enableNativeLazyObjects(true);
         }
 
-        $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true], $config);
+        if ('underscore' === getenv('AUDIT_TEST_NAMING_STRATEGY')) {
+            $config->setNamingStrategy(new UnderscoreNamingStrategy());
+        }
+
+        $connection = DriverManager::getConnection(self::resolveConnectionParams(), $config);
         $entityManager = new EntityManager($connection, $config);
 
-        $schemaTool = new SchemaTool($entityManager);
-        $schemaTool->createSchema(array_map(
+        $metadata = array_map(
             static fn (string $class): ClassMetadata => $entityManager->getClassMetadata($class),
             $classes,
-        ));
+        );
+
+        $schemaTool = new SchemaTool($entityManager);
+
+        $schemaTool->dropSchema($metadata);
+        $schemaTool->createSchema($metadata);
 
         return $entityManager;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function resolveConnectionParams(): array
+    {
+        $url = getenv('AUDIT_TEST_DATABASE_URL');
+
+        if (false === $url || '' === $url) {
+            return ['driver' => 'pdo_sqlite', 'memory' => true];
+        }
+
+        return (new DsnParser([
+            'sqlite' => 'pdo_sqlite',
+            'mysql' => 'pdo_mysql',
+            'pgsql' => 'pdo_pgsql',
+            'postgres' => 'pdo_pgsql',
+            'postgresql' => 'pdo_pgsql',
+        ]))->parse($url);
     }
 }

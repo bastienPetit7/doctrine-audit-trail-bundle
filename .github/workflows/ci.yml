@@ -120,3 +120,49 @@ jobs:
           SYMFONY_REQUIRE: ${{ matrix.symfony }}
 
       - run: composer test
+
+  tests-postgres:
+    name: Integration (Postgres / UnderscoreNamingStrategy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: audit
+          POSTGRES_PASSWORD: audit
+          POSTGRES_DB: audit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U audit -d audit_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AUDIT_TEST_DATABASE_URL: postgresql://audit:audit@127.0.0.1:5432/audit_test
+      AUDIT_TEST_NAMING_STRATEGY: underscore
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql
+          coverage: none
+
+      - name: Get Composer cache dir
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-tests-pgsql-php8.3-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-tests-pgsql-php8.3-
+
+      - name: Install dependencies
+        run: composer update --no-progress --no-interaction
+
+      - run: composer test-integration

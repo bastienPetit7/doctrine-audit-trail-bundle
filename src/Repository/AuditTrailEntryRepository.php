@@ -169,22 +169,22 @@ final class AuditTrailEntryRepository extends ServiceEntityRepository
         ?string $signature,
         \DateTimeImmutable $anonymisedAt,
     ): void {
-        $tableName = $this->getClassMetadata()->getTableName();
-        $platform = $this->getEntityManager()->getConnection()->getDatabasePlatform();
+        $metadata = $this->getClassMetadata();
+        $connection = $this->getEntityManager()->getConnection();
+        $platform = $connection->getDatabasePlatform();
 
-        $this->getEntityManager()->getConnection()->executeStatement(
-            \sprintf(
-                'UPDATE %s SET userId = :user_id, userIdentifier = :user_identifier, ipAddress = NULL, userAgent = NULL, actorLabel = :actor_label, signature = :signature, actorAnonymisedAt = :anonymised_at WHERE id = :id',
-                $tableName,
-            ),
+        $connection->update(
+            $metadata->getTableName(),
             [
-                'user_id' => $userId,
-                'user_identifier' => $userIdentifier,
-                'actor_label' => $actorLabel,
-                'signature' => $signature,
-                'anonymised_at' => $anonymisedAt->format($platform->getDateTimeFormatString()),
-                'id' => $id,
+                $metadata->getColumnName('userId') => $userId,
+                $metadata->getColumnName('userIdentifier') => $userIdentifier,
+                $metadata->getColumnName('ipAddress') => null,
+                $metadata->getColumnName('userAgent') => null,
+                $metadata->getColumnName('actorLabel') => $actorLabel,
+                $metadata->getColumnName('signature') => $signature,
+                $metadata->getColumnName('actorAnonymisedAt') => $anonymisedAt->format($platform->getDateTimeFormatString()),
             ],
+            [$metadata->getColumnName('id') => $id],
         );
     }
 

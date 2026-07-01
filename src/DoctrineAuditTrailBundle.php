@@ -139,7 +139,7 @@ final class DoctrineAuditTrailBundle extends AbstractBundle
                             ->defaultFalse()
                         ->end()
                         ->scalarNode('secret')
-                            ->info('Secret used by the default HMAC provider (use an env var). Required when enabled without a custom secret_provider.')
+                            ->info('Secret used by the default HMAC provider (use an env var). Required when enabled without a custom secret_provider. Minimum 32 characters — generate with "openssl rand -hex 32".')
                             ->defaultNull()
                         ->end()
                         ->scalarNode('secret_provider')

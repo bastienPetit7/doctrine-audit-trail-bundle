@@ -683,6 +683,10 @@ doctrine_audit_trail:
         secret: '%env(AUDIT_HMAC_SECRET)%'   # keep it OUT of the audit database
 ```
 
+The secret must be **at least 32 characters** — the provider throws on shorter
+values. Generate one with `openssl rand -hex 32` (64 hex chars, 256 bits of
+entropy).
+
 Every audit row is then sealed with `HMAC-SHA256(secret, canonical_payload)` in a
 nullable `signature` column. Verify the whole table at any time:
 

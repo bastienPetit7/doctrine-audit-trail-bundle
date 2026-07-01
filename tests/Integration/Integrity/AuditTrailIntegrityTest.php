@@ -28,7 +28,7 @@ final class AuditTrailIntegrityTest extends TestCase
     protected function setUp(): void
     {
         $this->em = $this->createAuditEntityManager();
-        $this->provider = new HmacSignatureProvider('integration-secret');
+        $this->provider = new HmacSignatureProvider('integration-secret-a1b2c3d4e5f60718');
     }
 
     private function persistSignedEntry(): AuditTrailEntry

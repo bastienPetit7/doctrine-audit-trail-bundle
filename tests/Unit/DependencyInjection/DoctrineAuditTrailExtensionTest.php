@@ -192,11 +192,11 @@ final class DoctrineAuditTrailExtensionTest extends AbstractExtensionTestCase
     public function it_should_register_the_default_hmac_provider_when_integrity_is_enabled(): void
     {
         $this->load([
-            'integrity' => ['enabled' => true, 'secret' => 's3cr3t'],
+            'integrity' => ['enabled' => true, 'secret' => 'a1b2c3d4e5f60718293a4b5c6d7e8f90'],
         ]);
 
         $this->assertContainerBuilderHasService(HmacSignatureProvider::class);
-        $this->assertContainerBuilderHasServiceDefinitionWithArgument(HmacSignatureProvider::class, 0, 's3cr3t');
+        $this->assertContainerBuilderHasServiceDefinitionWithArgument(HmacSignatureProvider::class, 0, 'a1b2c3d4e5f60718293a4b5c6d7e8f90');
         $this->assertContainerBuilderHasAlias(SignatureProviderInterface::class, HmacSignatureProvider::class);
     }
 

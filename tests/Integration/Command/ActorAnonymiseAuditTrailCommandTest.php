@@ -67,7 +67,7 @@ final class ActorAnonymiseAuditTrailCommandTest extends TestCase
     public function it_should_recompute_the_signature_so_verify_keeps_passing(): void
     {
         $em = $this->createAuditEntityManager();
-        $provider = new HmacSignatureProvider('integration-secret');
+        $provider = new HmacSignatureProvider('integration-secret-a1b2c3d4e5f60718');
         $this->seedSigned($em, $provider, self::TARGET_USER);
 
         $tester = $this->commandTester($em, signatureProvider: $provider);

@@ -78,7 +78,7 @@ final class AuditTrailEntryFactoryTest extends TestCase
     #[Test]
     public function it_should_seal_the_entry_with_a_verifiable_signature_when_a_provider_is_configured(): void
     {
-        $provider = new HmacSignatureProvider('top-secret');
+        $provider = new HmacSignatureProvider('a1b2c3d4e5f60718293a4b5c6d7e8f90');
 
         $log = (new AuditTrailEntryFactory($provider))->create(
             new AuditedDummy(),

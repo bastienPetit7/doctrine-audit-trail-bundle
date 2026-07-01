@@ -691,12 +691,15 @@ Every audit row is then sealed with `HMAC-SHA256(secret, canonical_payload)` in 
 nullable `signature` column. Verify the whole table at any time:
 
 ```bash
-php bin/console audit:verify   # exit 0 if intact, non-zero + the offending ids if tampered
+php bin/console audit:verify                  # exit 0 if intact, non-zero + the offending ids if tampered
+php bin/console audit:verify --format=json    # SOC/SIEM-friendly output: {status,total,signed,unsigned,tampered[]}
+php bin/console audit:verify --fail-fast      # stop at the first tampered entry (useful in monitoring cron)
 ```
 
 Run it from CI, a cron, or after restoring a backup. Because the secret lives
 outside the database, an attacker who can only write to the audit table cannot
-forge a valid signature.
+forge a valid signature. Each tampered entry is also logged at `error` level via
+the PSR logger, so a SIEM can pick it up without re-running the command.
 
 **Plug a KMS/Vault-backed secret** by implementing `SignatureProviderInterface`
 and pointing the config at it:

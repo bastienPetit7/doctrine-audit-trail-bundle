@@ -297,6 +297,68 @@ final class BundleBootTest extends KernelTestCase
         self::assertStringContainsString('Tamper detected', $tester->getDisplay());
     }
 
+    #[Test]
+    public function it_should_emit_a_machine_readable_report_when_format_is_json(): void
+    {
+        $this->bootIntegrityKernelWithSchema();
+        $this->persistSealedEntry();
+
+        $command = self::getContainer()->get(VerifyAuditTrailCommand::class);
+        self::assertInstanceOf(VerifyAuditTrailCommand::class, $command);
+
+        $tester = new CommandTester($command);
+        $exit = $tester->execute(['--format' => 'json']);
+
+        self::assertSame(Command::SUCCESS, $exit);
+
+        $report = json_decode(trim($tester->getDisplay()), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertSame(['status' => 'ok', 'total' => 1, 'signed' => 1, 'unsigned' => 0, 'tampered' => []], $report);
+    }
+
+    #[Test]
+    public function it_should_stop_at_the_first_tampered_entry_when_fail_fast_is_set(): void
+    {
+        $this->bootIntegrityKernelWithSchema();
+        $first = $this->persistSealedEntry();
+        $second = $this->persistSealedEntry();
+
+        /** @var EntityManagerInterface $auditEm */
+        $auditEm = self::getContainer()->get('doctrine.orm.audit_entity_manager');
+        $auditEm->getConnection()->executeStatement(
+            'UPDATE audit_trail SET diff = :diff WHERE id IN (:ids)',
+            ['diff' => json_encode(['before' => [], 'after' => ['title' => 'HACKED']], \JSON_THROW_ON_ERROR), 'ids' => [$first->getId(), $second->getId()]],
+            ['ids' => \Doctrine\DBAL\ArrayParameterType::INTEGER],
+        );
+        $auditEm->clear();
+
+        $command = self::getContainer()->get(VerifyAuditTrailCommand::class);
+        self::assertInstanceOf(VerifyAuditTrailCommand::class, $command);
+
+        $tester = new CommandTester($command);
+        $exit = $tester->execute(['--fail-fast' => true, '--format' => 'json']);
+
+        self::assertSame(Command::FAILURE, $exit);
+
+        $report = json_decode(trim($tester->getDisplay()), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertSame('tampered', $report['status']);
+        self::assertCount(1, $report['tampered'], 'fail-fast must break the loop before scanning the second tampered entry');
+    }
+
+    #[Test]
+    public function it_should_reject_an_unknown_format(): void
+    {
+        $this->bootIntegrityKernelWithSchema();
+
+        $command = self::getContainer()->get(VerifyAuditTrailCommand::class);
+        self::assertInstanceOf(VerifyAuditTrailCommand::class, $command);
+
+        $tester = new CommandTester($command);
+        $exit = $tester->execute(['--format' => 'xml']);
+
+        self::assertSame(Command::INVALID, $exit);
+        self::assertStringContainsString('Invalid --format', $tester->getDisplay());
+    }
+
     private function bootIntegrityKernelWithSchema(): void
     {
         $this->bootWithAuditConfig(self::INTEGRITY_CONFIG);

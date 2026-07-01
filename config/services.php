@@ -107,6 +107,7 @@ return static function (ContainerConfigurator $container): void {
         ->args([
             service(AuditTrailEntryRepository::class),
             service(SignatureProviderInterface::class)->nullOnInvalid(),
+            service('logger')->nullOnInvalid(),
         ]);
 
     $services->set(PruneAuditTrailCommand::class)

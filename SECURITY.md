@@ -88,6 +88,10 @@ The following are **not** considered vulnerabilities of this bundle:
   large change sets without configuring `ignored_fields`.
 - Issues only reproducible with unsupported PHP, Symfony, or Doctrine
   versions.
+- Loss of an audit entry when the process crashes between the business
+  commit and the audit write. The bundle provides **eventual consistency**,
+  not strict atomicity — see the *Consistency model* section of the README
+  for the trade-offs and the `soft_fail` / `async` mitigations.
 
 ## Hardening Recommendations
 

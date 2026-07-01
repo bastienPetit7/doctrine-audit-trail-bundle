@@ -12,6 +12,58 @@ here with a migration note.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-01
+
+Focused hardening pass ahead of `1.0`: closes the SQL-portability, integrity
+and observability gaps flagged in the v1 readiness audit
+(`V1_READINESS_AUDIT.md` §1.1 / §1.5 / §1.6 / §2.5). No public API break.
+
+### Security
+
+- **Minimum HMAC secret length enforced.** `HmacSignatureProvider` now
+  refuses any `doctrine_audit_trail.integrity.secret` shorter than **32
+  characters** and throws `InvalidArgumentException` at boot with the
+  generation hint `openssl rand -hex 32`. Previously a 1-char secret was
+  silently accepted, defeating the tamper-evidence guarantee advertised by
+  the seal. Existing deployments must rotate any secret below the threshold
+  before upgrading — the bundle will refuse to boot otherwise.
+  ([360d774](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/360d774))
+
+### Added
+
+- **`audit:verify --format=json`** — machine-readable output
+  (`{total, signed, unsigned, tampered_ids}`) suitable for SOC/SIEM
+  ingestion and CI gating. The human-readable text output remains the
+  default. ([9c33f02](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/9c33f02))
+- **`audit:verify --fail-fast`** — stops the scan at the first tampered row
+  instead of walking the whole table, so a monitoring cron can wake up an
+  operator in seconds rather than minutes on a large trail. Combines with
+  `--format=json`. ([9c33f02](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/9c33f02))
+- **Structured logging of tampered entries.** Each mismatch is now emitted
+  through the injected PSR logger at `error` level with the entry `id` in
+  the context — pipes cleanly into an existing alerting stack without
+  parsing command stdout.
+  ([9c33f02](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/9c33f02))
+- **PostgreSQL integration test job** on the CI matrix, running the full
+  integration suite against a real Postgres service with the
+  `UnderscoreNamingStrategy` (the naming convention used by most
+  production Symfony/Postgres stacks). Closes a long-standing blind spot
+  where SQL portability regressions could only be caught after release.
+  ([a31ba57](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/a31ba57))
+
+### Fixed
+
+- **`audit:actor-anonymise` on PostgreSQL with `UnderscoreNamingStrategy`.**
+  `AuditTrailEntryRepository::applyActorAnonymisation()` no longer emits a
+  hand-written `UPDATE` referencing camelCase column names (`userId`,
+  `userIdentifier`, `ipAddress`, …); it now goes through DBAL's
+  `Connection::update()` with column names resolved from
+  `ClassMetadata::getColumnName()`. Deployments using an underscore naming
+  strategy previously hit `SQLSTATE[42703]: column "userId" does not exist`
+  the moment they tried to honour a GDPR art. 17 request. The behaviour on
+  SQLite / MySQL is unchanged.
+  ([a31ba57](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/a31ba57))
+
 ### Changed
 
 - **Schema is host-side, not bundle-side.** The bundle ships the
@@ -27,6 +79,26 @@ here with a migration note.
   and the upgrade path for deployments that previously used
   `doctrine:schema:update`. `doctrine/migrations` is no longer pulled in as
   a `require-dev`; `symfony/maker-bundle` replaces it in `suggest`.
+  ([7891811](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/7891811))
+- **Documentation:** `SECURITY.md` clarifies the **eventual consistency**
+  model of the async persister and states explicitly that entries buffered
+  in-process may be lost if the worker crashes between dispatch and commit
+  — a Messenger DLQ is the recommended safety net.
+  ([06d27c1](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/06d27c1))
+- **Internal (test harness):** `InMemoryAuditEntityManagerTrait` gains a
+  connection-parameter resolver so the integration suite can run against
+  SQLite in-memory (default, offline) *or* the CI Postgres service without
+  duplicating fixture code.
+  ([a31ba57](https://github.com/bastienPetit7/doctrine-audit-trail-bundle/commit/a31ba57))
+
+### Upgrade notes
+
+- If you enable `doctrine_audit_trail.integrity`, verify that your
+  configured secret is at least 32 characters — the container will refuse
+  to build otherwise. Rotate via
+  `openssl rand -hex 32` and re-sign the trail with `audit:verify`
+  before switching secrets in production.
+- No schema migration required in this release.
 
 ## [0.6.0] - 2026-06-18
 
@@ -409,7 +481,8 @@ API may still evolve before `1.0`.
   to manage retention through their own migrations or scheduled tasks.
 - No first-party UI / admin view for browsing the trail.
 
-[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bastienPetit7/doctrine-audit-trail-bundle/compare/v0.3.0...v0.4.0
